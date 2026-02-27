@@ -3,7 +3,7 @@ import { formatDate } from '../lib/parser';
 
 export default function LocationAccordion({ location, check, onCheck, analysisId }) {
   const [open, setOpen] = useState(false);
-  const { location_code, items, total_qty } = location;
+  const { location_code, items = [], total_qty } = location;
   const result = check?.result;
 
   const resultStyle = {

@@ -3,6 +3,7 @@ import { sb } from '../lib/supabase';
 import Sidebar from './Sidebar';
 import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
+import ErrorBoundary from './ErrorBoundary';
 
 export default function Layout({ user, onLogout }) {
   const [analyses, setAnalyses]     = useState([]);   // DB에서 불러온 분석 목록
@@ -119,12 +120,14 @@ export default function Layout({ user, onLogout }) {
           onDelete={handleDelete}
           loading={loadingInit}
         />
-        <DetailPanel
-          analysis={selectedAnalysis}
-          checks={selectedChecks}
-          onCheck={handleCheck}
-          user={user}
-        />
+        <ErrorBoundary key={selected}>
+          <DetailPanel
+            analysis={selectedAnalysis}
+            checks={selectedChecks}
+            onCheck={handleCheck}
+            user={user}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* ── 붙여넣기 모달 ── */}
