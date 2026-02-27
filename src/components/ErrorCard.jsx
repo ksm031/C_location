@@ -1,6 +1,6 @@
 const REASON_STYLE = {
-  SHORTAGE: { bg: 'bg-orange-50', badge: 'bg-orange-100 text-orange-700', label: 'SHORTAGE' },
-  OVERAGE:  { bg: 'bg-blue-50',   badge: 'bg-blue-100 text-blue-700',     label: 'OVERAGE'  },
+  SHORTAGE: { bg: 'bg-blue-50',   badge: 'bg-blue-100 text-blue-700',     countColor: 'text-blue-600',   label: 'SHORTAGE' },
+  OVERAGE:  { bg: 'bg-yellow-50', badge: 'bg-yellow-100 text-yellow-700', countColor: 'text-yellow-600', label: 'OVERAGE'  },
 };
 
 /** "2026-02-27T22:15:22+00:00" → "02.27 22:15:22" */
@@ -11,14 +11,10 @@ function cardDate(dateStr) {
   return `${m[1]}.${m[2]} ${m[3]}:${m[4]}:${m[5]}`;
 }
 
-/**
- * 66-42C7-62-201 → 42C7
- * 66-42-C7-62-201 → 42-C7  (첫 파트가 숫자만이면 다음 파트도 포함)
- */
+/** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */
 function shortLoc(code) {
-  const stripped = code.replace(/^66-/, '');
-  const parts = stripped.split('-');
-  return /^\d+$/.test(parts[0]) ? parts.slice(0, 2).join('-') : parts[0];
+  const parts = code.replace(/^66-/, '').split('-');
+  return parts.slice(0, 2).join('-');
 }
 
 export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete }) {
@@ -39,8 +35,8 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
     ? `누락 ${a.sys_qty}개`
     : `초과 ${a.placed_qty}개`;
 
-  // 대표 로케이션 (축약, 최대 3개)
-  const locCodes  = locs.map(l => shortLoc(l.location_code));
+  // 대표 로케이션 (축약 + 중복 제거, 최대 3개)
+  const locCodes  = [...new Set(locs.map(l => shortLoc(l.location_code)))];
   const shownLocs = locCodes.slice(0, 3);
   const extraLocs = locCodes.length - shownLocs.length;
 
@@ -83,7 +79,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         <div className="flex items-baseline gap-1 min-w-0 text-xs">
           <span className="font-mono text-slate-600 flex-shrink-0">{firstItem.barcode}</span>
           <span className="text-slate-400 truncate min-w-0">({firstItem.product_name})</span>
-          <span className={`flex-shrink-0 font-medium ${a.reason === 'SHORTAGE' ? 'text-orange-600' : 'text-blue-600'}`}>
+          <span className={`flex-shrink-0 font-medium ${style.countColor}`}>
             {diffLabel}
           </span>
         </div>
