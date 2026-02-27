@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
 import ErrorCard from './ErrorCard';
 
-export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, loading }) {
-  const [search, setSearch] = useState('');
-  const [sort, setSort]     = useState('reported_at'); // 'reported_at' | 'location'
+export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, loading, search, onSearchChange }) {
+  const [sort, setSort] = useState('reported_at'); // 'reported_at' | 'location'
 
   // 검색 필터
   const filtered = useMemo(() => {
@@ -47,7 +46,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => onSearchChange(e.target.value)}
           placeholder="보고번호 / 로케이션 / 상품 검색"
           className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg
                      focus:outline-none focus:ring-2 focus:ring-blue-400"
