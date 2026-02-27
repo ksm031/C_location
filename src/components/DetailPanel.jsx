@@ -14,7 +14,7 @@ function cardDate(dateStr) {
   return `${m[1]}.${m[2]} ${m[3]}:${m[4]}:${m[5]}`;
 }
 
-export default function DetailPanel({ analysis, checks, onCheck, user, onBack }) {
+export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user, onBack }) {
   const [sortBy, setSortBy]   = useState('location'); // 'location' | 'time'
   const [filterBy, setFilter] = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
 
@@ -181,6 +181,7 @@ export default function DetailPanel({ analysis, checks, onCheck, user, onBack })
             location={loc}
             check={checks[loc.location_code]}
             onCheck={onCheck}
+            onUncheck={onUncheck}
             analysisId={a.id}
           />
         ))}

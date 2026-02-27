@@ -121,11 +121,12 @@ function parseSectionLines(lines) {
       };
     }
     locationMap[row.location_code].items.push({
-      sku_id:       row.sku_id,
-      product_name: row.product_name,
-      barcode:      row.barcode,
-      display_qty:  row.display_qty,
-      display_at:   row.display_at,
+      sku_id:          row.sku_id,
+      product_name:    row.product_name,
+      barcode:         row.barcode,
+      display_worker:  row.display_worker,
+      display_qty:     row.display_qty,
+      display_at:      row.display_at,
     });
     locationMap[row.location_code].total_qty += row.display_qty;
   }

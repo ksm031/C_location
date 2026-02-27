@@ -1,15 +1,10 @@
 import { useState } from 'react';
 import { formatDate } from '../lib/parser';
 
-export default function LocationAccordion({ location, check, onCheck, analysisId }) {
+export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId }) {
   const [open, setOpen] = useState(false);
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
-
-  const resultStyle = {
-    found:     { btn: 'bg-green-500 hover:bg-green-600 text-white', label: '✓ 발견' },
-    not_found: { btn: 'bg-red-500 hover:bg-red-600 text-white',     label: '✗ 없음' },
-  };
 
   return (
     <div className={`rounded-xl border transition-colors ${
@@ -19,31 +14,31 @@ export default function LocationAccordion({ location, check, onCheck, analysisId
     }`}>
       {/* 헤더 행 */}
       <div
-        className="flex items-center gap-3 p-3 cursor-pointer select-none"
+        className="flex items-center gap-3 px-3 py-3 cursor-pointer select-none"
         onClick={() => setOpen(o => !o)}
       >
         {/* 펼침 아이콘 */}
-        <span className={`text-slate-400 text-xs transition-transform ${open ? 'rotate-90' : ''}`}>
+        <span className={`text-slate-400 text-xs transition-transform flex-shrink-0 ${open ? 'rotate-90' : ''}`}>
           ▶
         </span>
 
         {/* 로케이션 코드 */}
-        <span className="font-mono font-semibold text-sm text-slate-800 flex-1">
+        <span className="font-mono font-semibold text-sm text-slate-800 flex-1 min-w-0 truncate">
           {location_code}
         </span>
 
         {/* 항목 수 / 수량 */}
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-slate-500 flex-shrink-0">
           {items.length}종 {total_qty}개
         </span>
 
         {/* 체크 버튼 */}
-        <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+        <div className="flex gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => onCheck(analysisId, location_code, 'found')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
               result === 'found'
-                ? resultStyle.found.btn
+                ? 'bg-green-500 hover:bg-green-600 text-white'
                 : 'bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-700'
             }`}
           >
@@ -51,20 +46,29 @@ export default function LocationAccordion({ location, check, onCheck, analysisId
           </button>
           <button
             onClick={() => onCheck(analysisId, location_code, 'not_found')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
               result === 'not_found'
-                ? resultStyle.not_found.btn
+                ? 'bg-red-500 hover:bg-red-600 text-white'
                 : 'bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700'
             }`}
           >
             없음
           </button>
+          {result && (
+            <button
+              onClick={() => onUncheck(analysisId, location_code)}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-slate-200 hover:bg-slate-300 text-slate-500 hover:text-slate-700 transition-colors"
+              title="체크 취소"
+            >
+              ↩
+            </button>
+          )}
         </div>
       </div>
 
       {/* 체크한 사람 표시 */}
       {result && (
-        <div className="px-4 pb-1 -mt-1">
+        <div className="px-4 pb-1.5 -mt-1">
           <span className={`text-xs ${result === 'found' ? 'text-green-600' : 'text-red-600'}`}>
             {result === 'found' ? '✓ 발견됨' : '✗ 없음 확인'}
             {check?.checked_by && ` · ${check.checked_by}`}
@@ -78,12 +82,17 @@ export default function LocationAccordion({ location, check, onCheck, analysisId
           {items.map((item, idx) => (
             <div key={idx} className="px-4 py-2.5 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-700 truncate" title={item.product_name}>
+                <p className="text-xs text-slate-700" title={item.product_name}>
                   {item.product_name}
                 </p>
                 <p className="text-xs text-slate-400 font-mono mt-0.5">
                   {item.barcode}
                 </p>
+                {item.display_worker && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    진열자 {item.display_worker}
+                  </p>
+                )}
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-xs font-medium text-slate-600">{item.display_qty}개</p>
