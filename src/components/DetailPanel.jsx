@@ -34,8 +34,8 @@ export default function DetailPanel({ analysis, checks, onCheck, user }) {
     let list = [...locs];
     if (sortBy === 'time') {
       list.sort((a, b) => {
-        const ta = a.items[0]?.display_at ?? '';
-        const tb = b.items[0]?.display_at ?? '';
+        const ta = a.items?.[0]?.display_at ?? '';
+        const tb = b.items?.[0]?.display_at ?? '';
         return ta.localeCompare(tb);
       });
     } else {
