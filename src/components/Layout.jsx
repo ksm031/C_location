@@ -72,6 +72,23 @@ export default function Layout({ user, onLogout }) {
     );
   };
 
+  // ── 체크 취소 ─────────────────────────────────────────────────
+  const handleUncheck = async (analysisId, locationCode) => {
+    setChecks(prev => {
+      const copy = { ...prev };
+      if (copy[analysisId]) {
+        const locCopy = { ...copy[analysisId] };
+        delete locCopy[locationCode];
+        copy[analysisId] = locCopy;
+      }
+      return copy;
+    });
+    await sb.from('location_checks')
+      .delete()
+      .eq('analysis_id', analysisId)
+      .eq('location_code', locationCode);
+  };
+
   // ── 삭제 ──────────────────────────────────────────────────────
   const handleDelete = async (analysisId) => {
     if (!window.confirm('이 오류보고를 목록에서 삭제할까요?')) return;
@@ -130,6 +147,7 @@ export default function Layout({ user, onLogout }) {
               analysis={selectedAnalysis}
               checks={selectedChecks}
               onCheck={handleCheck}
+              onUncheck={handleUncheck}
               user={user}
               onBack={() => setSelected(null)}
             />
