@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>텍스트 붙여넣기 저장</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 사이드바 */
+    #sidebar {
+      width: 240px;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      overflow-y: auto;
+    }
+    #sidebar h2 { font-size: 14px; color: #a6adc8; text-transform: uppercase; letter-spacing: 1px; }
+    #file-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    #file-list li {
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      word-break: break-all;
+      transition: background 0.15s;
+    }
+    #file-list li:hover { background: #313244; }
+    #file-list li.active { background: #45475a; font-weight: 600; }
+
+    /* 메인 영역 */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+      overflow: hidden;
+    }
+    h1 { font-size: 20px; color: #1e1e2e; }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    #filename-input {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      width: 260px;
+    }
+    button {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    #btn-save   { background: #4c6ef5; color: #fff; }
+    #btn-clear  { background: #e5e7eb; color: #374151; }
+
+    #status {
+      font-size: 13px;
+      color: #059669;
+      min-height: 20px;
+    }
+    #status.error { color: #dc2626; }
+
+    #paste-area {
+      flex: 1;
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: none;
+      background: #fff;
+      font-family: 'Consolas', 'D2Coding', monospace;
+      outline: none;
+    }
+    #paste-area:focus { border-color: #4c6ef5; box-shadow: 0 0 0 3px rgba(76,110,245,0.15); }
+
+    #char-count { font-size: 12px; color: #9ca3af; text-align: right; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>저장된 파일</h2>
+  <ul id="file-list"><li style="color:#585b70;font-size:12px;">불러오는 중...</li></ul>
+</div>
+
+<div id="main">
+  <h1>텍스트 붙여넣기 & 저장</h1>
+
+  <div id="controls">
+    <input id="filename-input" type="text" placeholder="파일명 (비워두면 자동 생성)">
+    <button id="btn-save">저장</button>
+    <button id="btn-clear">지우기</button>
+  </div>
+
+  <div id="status"></div>
+
+  <textarea id="paste-area" placeholder="인트라넷 페이지에서 Ctrl+A → Ctrl+C 후 여기에 Ctrl+V로 붙여넣으세요."></textarea>
+  <div id="char-count">0자</div>
+</div>
+
+<script>
+  const textarea    = document.getElementById('paste-area');
+  const btnSave     = document.getElementById('btn-save');
+  const btnClear    = document.getElementById('btn-clear');
+  const filenameInput = document.getElementById('filename-input');
+  const statusEl    = document.getElementById('status');
+  const charCount   = document.getElementById('char-count');
+  const fileList    = document.getElementById('file-list');
+
+  // 글자 수 업데이트
+  textarea.addEventListener('input', () => {
+    charCount.textContent = textarea.value.length.toLocaleString() + '자';
+  });
+
+  // 저장
+  btnSave.addEventListener('click', async () => {
+    const text = textarea.value;
+    if (!text.trim()) {
+      setStatus('붙여넣을 텍스트가 없습니다.', true);
+      return;
+    }
+    try {
+      const res = await fetch('/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: filenameInput.value, text })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        setStatus(`저장 완료: data/${data.saved_as}`);
+        filenameInput.value = '';
+        loadFileList();
+      } else {
+        setStatus('저장 실패', true);
+      }
+    } catch (e) {
+      setStatus('서버 오류: ' + e.message, true);
+    }
+  });
+
+  // 지우기
+  btnClear.addEventListener('click', () => {
+    textarea.value = '';
+    charCount.textContent = '0자';
+    setStatus('');
+  });
+
+  function setStatus(msg, isError = false) {
+    statusEl.textContent = msg;
+    statusEl.className = isError ? 'error' : '';
+  }
+
+  // 파일 목록 로드
+  async function loadFileList() {
+    try {
+      const res = await fetch('/files');
+      const files = await res.json();
+      fileList.innerHTML = '';
+      if (files.length === 0) {
+        fileList.innerHTML = '<li style="color:#585b70;font-size:12px;">저장된 파일 없음</li>';
+        return;
+      }
+      files.forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        li.title = name;
+        li.addEventListener('click', () => loadFile(name, li));
+        fileList.appendChild(li);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // 파일 내용 불러오기 (클릭 시)
+  async function loadFile(filename, liEl) {
+    document.querySelectorAll('#file-list li').forEach(l => l.classList.remove('active'));
+    liEl.classList.add('active');
+    try {
+      const res = await fetch('/files/' + encodeURIComponent(filename));
+      const data = await res.json();
+      textarea.value = data.content;
+      charCount.textContent = data.content.length.toLocaleString() + '자';
+      filenameInput.value = filename.replace(/\.txt$/, '');
+      setStatus(`불러옴: ${filename}`);
+    } catch (e) {
+      setStatus('불러오기 실패: ' + e.message, true);
+    }
+  }
+
+  loadFileList();
+</script>
+</body>
+</html>
