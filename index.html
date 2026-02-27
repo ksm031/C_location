@@ -18,14 +18,12 @@
     #file-list li.placeholder { color: #585b70; font-size: 12px; cursor: default; }
     #file-list li.placeholder:hover { background: none; }
     #btn-export { padding: 8px 12px; background: #313244; color: #cdd6f4; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; text-align: center; transition: background 0.15s; margin-top: auto; }
-    #btn-export:hover { background: #45475a; opacity: 1; }
+    #btn-export:hover { background: #45475a; }
 
     /* 메인 */
     #main { flex: 1; display: flex; flex-direction: column; padding: 24px; gap: 14px; overflow: hidden; min-width: 0; }
-    #header { display: flex; align-items: center; justify-content: space-between; }
+    #header { display: flex; align-items: center; }
     h1 { font-size: 20px; color: #1e1e2e; }
-    #btn-logout { padding: 6px 14px; background: #e5e7eb; color: #374151; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
-    #btn-logout:hover { background: #d1d5db; opacity: 1; }
 
     /* 저장 컨트롤 */
     #controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -53,8 +51,7 @@
 
 <div id="main">
   <div id="header">
-    <h1>텍스트 붙여넣기 & 저장</h1>
-    <a href="/logout" style="text-decoration:none;"><button id="btn-logout">로그아웃</button></a>
+    <h1>텍스트 붙여넣기 &amp; 저장</h1>
   </div>
 
   <div id="controls">
@@ -68,7 +65,21 @@
   <div id="char-count">0자</div>
 </div>
 
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- JSZip -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+
 <script>
+  // ── Supabase 설정 ──────────────────────────────────────────────────────────
+  // Supabase 프로젝트의 URL과 anon key를 아래에 입력하세요.
+  // Supabase → Project Settings → API 에서 확인 가능
+  const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
   const textarea      = document.getElementById('paste-area');
   const btnSave       = document.getElementById('btn-save');
   const btnClear      = document.getElementById('btn-clear');
@@ -82,32 +93,28 @@
     charCount.textContent = textarea.value.length.toLocaleString() + '자';
   });
 
-  btnExport.addEventListener('click', () => {
-    window.location.href = '/export';
-  });
-
   // 저장
   btnSave.addEventListener('click', async () => {
     const text = textarea.value;
     if (!text.trim()) { setStatus('붙여넣을 텍스트가 없습니다.', true); return; }
+
+    let filename = filenameInput.value.trim();
+    if (!filename) filename = 'paste_' + new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+    if (!filename.endsWith('.txt')) filename += '.txt';
+
     btnSave.disabled = true;
     btnSave.textContent = '저장 중...';
     try {
-      const res = await fetch('/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: filenameInput.value, text })
-      });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        setStatus(`✅ 저장 완료: ${data.saved_as}`);
-        filenameInput.value = '';
-        loadFileList();
-      } else {
-        setStatus(data.error || '저장 실패', true);
-      }
+      const { error } = await sb.from('pastes').upsert(
+        { filename, content: text, updated_at: new Date().toISOString() },
+        { onConflict: 'filename' }
+      );
+      if (error) throw error;
+      setStatus('✅ 저장 완료: ' + filename);
+      filenameInput.value = '';
+      loadFileList();
     } catch (e) {
-      setStatus('서버 오류: ' + e.message, true);
+      setStatus('저장 실패: ' + e.message, true);
     } finally {
       btnSave.disabled = false;
       btnSave.textContent = '저장';
@@ -120,6 +127,26 @@
     setStatus('');
   });
 
+  // ZIP 내보내기
+  btnExport.addEventListener('click', async () => {
+    btnExport.textContent = '준비 중...';
+    try {
+      const { data, error } = await sb.from('pastes').select('filename, content').order('filename');
+      if (error) throw error;
+      const zip = new JSZip();
+      data.forEach(({ filename, content }) => zip.file(filename, content));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'pastes.zip'; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setStatus('내보내기 실패: ' + e.message, true);
+    } finally {
+      btnExport.textContent = '⬇ 전체 zip 다운로드';
+    }
+  });
+
   function setStatus(msg, isError = false) {
     statusEl.textContent = msg;
     statusEl.className = isError ? 'error' : '';
@@ -127,34 +154,39 @@
 
   async function loadFileList() {
     try {
-      const res = await fetch('/files');
-      if (!res.ok) { fileList.innerHTML = '<li class="placeholder">목록 불러오기 실패</li>'; return; }
-      const files = await res.json();
-      if (!Array.isArray(files) || files.length === 0) {
-        fileList.innerHTML = '<li class="placeholder">저장된 파일 없음</li>'; return;
+      const { data, error } = await sb.from('pastes').select('filename').order('filename');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        fileList.innerHTML = '<li class="placeholder">저장된 파일 없음</li>';
+        return;
       }
       fileList.innerHTML = '';
-      files.forEach(name => {
+      data.forEach(({ filename }) => {
         const li = document.createElement('li');
-        li.textContent = name;
-        li.title = name;
-        li.addEventListener('click', () => loadFile(name, li));
+        li.textContent = filename;
+        li.title = filename;
+        li.addEventListener('click', () => loadFile(filename, li));
         fileList.appendChild(li);
       });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      fileList.innerHTML = '<li class="placeholder">목록 불러오기 실패</li>';
+      console.error(e);
+    }
   }
 
   async function loadFile(filename, liEl) {
     document.querySelectorAll('#file-list li').forEach(l => l.classList.remove('active'));
     liEl.classList.add('active');
     try {
-      const res = await fetch('/files/' + encodeURIComponent(filename));
-      const data = await res.json();
+      const { data, error } = await sb.from('pastes').select('content').eq('filename', filename).single();
+      if (error) throw error;
       textarea.value = data.content;
       charCount.textContent = data.content.length.toLocaleString() + '자';
       filenameInput.value = filename.replace(/\.txt$/, '');
-      setStatus(`불러옴: ${filename}`);
-    } catch (e) { setStatus('불러오기 실패: ' + e.message, true); }
+      setStatus('불러옴: ' + filename);
+    } catch (e) {
+      setStatus('불러오기 실패: ' + e.message, true);
+    }
   }
 
   loadFileList();
