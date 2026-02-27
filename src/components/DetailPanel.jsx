@@ -49,7 +49,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
         return ta.localeCompare(tb);
       });
     } else {
-      list.sort((a, b) => a.location_code.localeCompare(b.location_code));
+      list.sort((a, b) => a.location_code.localeCompare(b.location_code, undefined, { numeric: true }));
     }
     return list;
   }, [locs, sortBy]);

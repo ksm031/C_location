@@ -131,9 +131,9 @@ function parseSectionLines(lines) {
     locationMap[row.location_code].total_qty += row.display_qty;
   }
 
-  // 로케이션 코드 오름차순 정렬
+  // 로케이션 코드 오름차순 정렬 (숫자 세그먼트는 수치 비교)
   report.locations = Object.values(locationMap).sort((a, b) =>
-    a.location_code.localeCompare(b.location_code)
+    a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
   );
 
   return report;
