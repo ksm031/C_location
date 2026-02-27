@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { formatDate } from '../lib/parser';
 
-export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, search }) {
+export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcode }) {
   const [open, setOpen] = useState(false);
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
 
-  // 검색어와 일치하는 아이템 계산
-  const q = (search ?? '').trim().toLowerCase();
-  const isMatch = q
-    ? (item) => item.product_name.toLowerCase().includes(q) || item.barcode.toLowerCase().includes(q)
+  // 찾아야 할 상품(헤더 바코드)과 일치하는 아이템 계산
+  const isMatch = targetBarcode
+    ? (item) => item.barcode === targetBarcode
     : () => false;
-  const matchCount = q
+  const matchCount = targetBarcode
     ? items.filter(isMatch).reduce((sum, item) => sum + (item.display_qty ?? 1), 0)
     : 0;
 

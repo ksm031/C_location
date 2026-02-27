@@ -183,7 +183,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
             onCheck={onCheck}
             onUncheck={onUncheck}
             analysisId={a.id}
-            search={search}
+            targetBarcode={firstItem?.barcode}
           />
         ))}
       </div>
