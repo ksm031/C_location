@@ -4,3 +4,9 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# Vite / Node
+node_modules/
+dist/
+.DS_Store
+
