@@ -36,6 +36,9 @@ export default function DetailPanel({ analysis, checks, onCheck, user, onBack })
   const pct  = locs.length > 0 ? Math.round((done / locs.length) * 100) : 0;
   const completed = locs.length > 0 && done === locs.length;
 
+  const firstItem = locs.flatMap(l => l.items ?? []).find(Boolean) ?? null;
+  const diffQty   = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${a.placed_qty}개`;
+
   // 정렬
   const sortedLocs = useMemo(() => {
     let list = [...locs];
@@ -100,6 +103,17 @@ export default function DetailPanel({ analysis, checks, onCheck, user, onBack })
           <span>진열자 {a.worker}</span>
           <span>전산 {a.sys_qty}개</span>
         </div>
+
+        {/* 행 4: 바코드 (상품명) · 찾아야하는 갯수 */}
+        {firstItem && (
+          <div className="flex items-baseline gap-1.5 mt-1 text-xs">
+            <span className="font-mono text-slate-700 font-medium flex-shrink-0">{firstItem.barcode}</span>
+            <span className="text-slate-500">{firstItem.product_name}</span>
+            <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
+              {diffQty}
+            </span>
+          </div>
+        )}
 
         {/* 진행률 바 */}
         <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
