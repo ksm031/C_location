@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS location_checks (
 ALTER TABLE analyses       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE location_checks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "anon_all_analyses" ON analyses;
+DROP POLICY IF EXISTS "anon_all_location_checks" ON location_checks;
+
 CREATE POLICY "anon_all_analyses"
   ON analyses FOR ALL TO anon
   USING (true) WITH CHECK (true);
