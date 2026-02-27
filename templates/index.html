@@ -6,96 +6,50 @@
   <title>텍스트 붙여넣기 저장</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; height: 100vh; overflow: hidden; }
 
     /* 사이드바 */
-    #sidebar {
-      width: 240px;
-      background: #1e1e2e;
-      color: #cdd6f4;
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      gap: 12px;
-      overflow-y: auto;
-    }
-    #sidebar h2 { font-size: 14px; color: #a6adc8; text-transform: uppercase; letter-spacing: 1px; }
+    #sidebar { width: 240px; background: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow-y: auto; flex-shrink: 0; }
+    #sidebar h2 { font-size: 13px; color: #a6adc8; text-transform: uppercase; letter-spacing: 1px; }
     #file-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-    #file-list li {
-      padding: 8px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      word-break: break-all;
-      transition: background 0.15s;
-    }
+    #file-list li { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; word-break: break-all; transition: background 0.15s; }
     #file-list li:hover { background: #313244; }
     #file-list li.active { background: #45475a; font-weight: 600; }
+    #file-list li.placeholder { color: #585b70; font-size: 12px; cursor: default; }
+    #file-list li.placeholder:hover { background: none; }
 
-    /* 메인 영역 */
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 24px;
-      gap: 16px;
-      overflow: hidden;
-    }
+    /* 메인 */
+    #main { flex: 1; display: flex; flex-direction: column; padding: 24px; gap: 14px; overflow: hidden; min-width: 0; }
     h1 { font-size: 20px; color: #1e1e2e; }
 
-    #controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
+    /* GitHub 설정 패널 */
+    #config-panel {
+      background: {% if configured %}#ecfdf5{% else %}#fff7ed{% endif %};
+      border: 1px solid {% if configured %}#a7f3d0{% else %}#fed7aa{% endif %};
+      border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;
     }
-    #filename-input {
-      padding: 8px 12px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-      width: 260px;
-    }
-    button {
-      padding: 8px 18px;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    button:hover { opacity: 0.85; }
-    #btn-save   { background: #4c6ef5; color: #fff; }
-    #btn-clear  { background: #e5e7eb; color: #374151; }
+    #config-panel summary { font-size: 14px; font-weight: 600; cursor: pointer;
+      color: {% if configured %}#065f46{% else %}#92400e{% endif %}; }
+    .config-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; margin-top: 8px; }
+    .config-grid label { font-size: 13px; color: #374151; white-space: nowrap; }
+    .config-grid input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; width: 100%; }
+    #btn-config { padding: 7px 16px; background: #4c6ef5; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; align-self: flex-start; }
+    #config-status { font-size: 12px; color: #059669; }
+    #config-status.error { color: #dc2626; }
 
-    #status {
-      font-size: 13px;
-      color: #059669;
-      min-height: 20px;
-    }
+    /* 저장 컨트롤 */
+    #controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    #filename-input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 260px; }
+    button { padding: 8px 18px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; transition: opacity 0.2s; }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #btn-save  { background: #4c6ef5; color: #fff; }
+    #btn-clear { background: #e5e7eb; color: #374151; }
+    #status { font-size: 13px; color: #059669; min-height: 18px; }
     #status.error { color: #dc2626; }
 
-    #paste-area {
-      flex: 1;
-      width: 100%;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 14px;
-      font-size: 14px;
-      line-height: 1.6;
-      resize: none;
-      background: #fff;
-      font-family: 'Consolas', 'D2Coding', monospace;
-      outline: none;
-    }
+    #paste-area { flex: 1; width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 14px; font-size: 14px; line-height: 1.6; resize: none; background: #fff; font-family: 'Consolas', 'D2Coding', monospace; outline: none; }
     #paste-area:focus { border-color: #4c6ef5; box-shadow: 0 0 0 3px rgba(76,110,245,0.15); }
-
     #char-count { font-size: 12px; color: #9ca3af; text-align: right; }
   </style>
 </head>
@@ -103,45 +57,95 @@
 
 <div id="sidebar">
   <h2>저장된 파일</h2>
-  <ul id="file-list"><li style="color:#585b70;font-size:12px;">불러오는 중...</li></ul>
+  <ul id="file-list"><li class="placeholder">불러오는 중...</li></ul>
 </div>
 
 <div id="main">
   <h1>텍스트 붙여넣기 & 저장</h1>
 
+  <!-- GitHub 설정 -->
+  <details id="config-panel" {% if not configured %}open{% endif %}>
+    <summary>
+      {% if configured %}✅ GitHub 연결됨 ({{ config.owner }}/{{ config.repo }}){% else %}⚠️ GitHub 저장소 설정 필요 (클릭하여 열기){% endif %}
+    </summary>
+    <div class="config-grid">
+      <label>Personal Access Token</label>
+      <input id="cfg-token" type="password" placeholder="ghp_xxxxxxxxxxxx" value="{{ config.token }}">
+      <label>Owner (계정명)</label>
+      <input id="cfg-owner" type="text" placeholder="your-github-username" value="{{ config.owner }}">
+      <label>Repository</label>
+      <input id="cfg-repo"  type="text" placeholder="your-repo-name" value="{{ config.repo }}">
+    </div>
+    <button id="btn-config" style="margin-top:10px;">연결 확인</button>
+    <div id="config-status"></div>
+  </details>
+
   <div id="controls">
     <input id="filename-input" type="text" placeholder="파일명 (비워두면 자동 생성)">
-    <button id="btn-save">저장</button>
+    <button id="btn-save">저장 → GitHub</button>
     <button id="btn-clear">지우기</button>
   </div>
 
   <div id="status"></div>
-
   <textarea id="paste-area" placeholder="인트라넷 페이지에서 Ctrl+A → Ctrl+C 후 여기에 Ctrl+V로 붙여넣으세요."></textarea>
   <div id="char-count">0자</div>
 </div>
 
 <script>
-  const textarea    = document.getElementById('paste-area');
-  const btnSave     = document.getElementById('btn-save');
-  const btnClear    = document.getElementById('btn-clear');
+  const textarea      = document.getElementById('paste-area');
+  const btnSave       = document.getElementById('btn-save');
+  const btnClear      = document.getElementById('btn-clear');
+  const btnConfig     = document.getElementById('btn-config');
   const filenameInput = document.getElementById('filename-input');
-  const statusEl    = document.getElementById('status');
-  const charCount   = document.getElementById('char-count');
-  const fileList    = document.getElementById('file-list');
+  const statusEl      = document.getElementById('status');
+  const configStatus  = document.getElementById('config-status');
+  const charCount     = document.getElementById('char-count');
+  const fileList      = document.getElementById('file-list');
 
-  // 글자 수 업데이트
   textarea.addEventListener('input', () => {
     charCount.textContent = textarea.value.length.toLocaleString() + '자';
+  });
+
+  // GitHub 설정 저장
+  btnConfig.addEventListener('click', async () => {
+    btnConfig.disabled = true;
+    btnConfig.textContent = '확인 중...';
+    configStatus.textContent = '';
+    try {
+      const res = await fetch('/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: document.getElementById('cfg-token').value,
+          owner: document.getElementById('cfg-owner').value,
+          repo:  document.getElementById('cfg-repo').value,
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        configStatus.className = '';
+        configStatus.textContent = `✅ 연결 성공: ${data.repo}`;
+        loadFileList();
+        location.reload();
+      } else {
+        configStatus.className = 'error';
+        configStatus.textContent = data.error || '연결 실패';
+      }
+    } catch (e) {
+      configStatus.className = 'error';
+      configStatus.textContent = '서버 오류: ' + e.message;
+    } finally {
+      btnConfig.disabled = false;
+      btnConfig.textContent = '연결 확인';
+    }
   });
 
   // 저장
   btnSave.addEventListener('click', async () => {
     const text = textarea.value;
-    if (!text.trim()) {
-      setStatus('붙여넣을 텍스트가 없습니다.', true);
-      return;
-    }
+    if (!text.trim()) { setStatus('붙여넣을 텍스트가 없습니다.', true); return; }
+    btnSave.disabled = true;
+    btnSave.textContent = '저장 중...';
     try {
       const res = await fetch('/save', {
         method: 'POST',
@@ -150,18 +154,20 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        setStatus(`저장 완료: data/${data.saved_as}`);
+        setStatus(`✅ GitHub에 저장 완료: data/${data.saved_as}`);
         filenameInput.value = '';
         loadFileList();
       } else {
-        setStatus('저장 실패', true);
+        setStatus(data.error || '저장 실패', true);
       }
     } catch (e) {
       setStatus('서버 오류: ' + e.message, true);
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = '저장 → GitHub';
     }
   });
 
-  // 지우기
   btnClear.addEventListener('click', () => {
     textarea.value = '';
     charCount.textContent = '0자';
@@ -173,16 +179,15 @@
     statusEl.className = isError ? 'error' : '';
   }
 
-  // 파일 목록 로드
   async function loadFileList() {
     try {
       const res = await fetch('/files');
+      if (!res.ok) { fileList.innerHTML = '<li class="placeholder">설정 후 목록 표시</li>'; return; }
       const files = await res.json();
-      fileList.innerHTML = '';
-      if (files.length === 0) {
-        fileList.innerHTML = '<li style="color:#585b70;font-size:12px;">저장된 파일 없음</li>';
-        return;
+      if (!Array.isArray(files) || files.length === 0) {
+        fileList.innerHTML = '<li class="placeholder">저장된 파일 없음</li>'; return;
       }
+      fileList.innerHTML = '';
       files.forEach(name => {
         const li = document.createElement('li');
         li.textContent = name;
@@ -190,12 +195,9 @@
         li.addEventListener('click', () => loadFile(name, li));
         fileList.appendChild(li);
       });
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  // 파일 내용 불러오기 (클릭 시)
   async function loadFile(filename, liEl) {
     document.querySelectorAll('#file-list li').forEach(l => l.classList.remove('active'));
     liEl.classList.add('active');
@@ -206,12 +208,10 @@
       charCount.textContent = data.content.length.toLocaleString() + '자';
       filenameInput.value = filename.replace(/\.txt$/, '');
       setStatus(`불러옴: ${filename}`);
-    } catch (e) {
-      setStatus('불러오기 실패: ' + e.message, true);
-    }
+    } catch (e) { setStatus('불러오기 실패: ' + e.message, true); }
   }
 
-  loadFileList();
+  {% if configured %}loadFileList();{% endif %}
 </script>
 </body>
 </html>
