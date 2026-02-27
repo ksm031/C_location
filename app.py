@@ -1,75 +1,67 @@
 import os
-import base64
-import requests
+import io
+import zipfile
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template, session
 from functools import wraps
+
+import psycopg2
+from flask import (Flask, request, jsonify, render_template,
+                   session, redirect, url_for, send_file)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 
-GITHUB_API = 'https://api.github.com'
+APP_PASSWORD = os.environ.get('APP_PASSWORD', '')
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 
-# ── GitHub API helpers ───────────────────────────────────────────────────────
+# ── DB 연결 ───────────────────────────────────────────────────────────────────
 
-def gh_headers(token):
-    return {
-        'Authorization': f'token {token}',
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-    }
+def get_db():
+    if not DATABASE_URL:
+        raise RuntimeError('DATABASE_URL 환경변수가 설정되지 않았습니다.')
+    return psycopg2.connect(DATABASE_URL)
 
 
-def get_config():
-    """환경변수 우선, 없으면 세션에서 읽음"""
-    return {
-        'token': os.environ.get('GITHUB_TOKEN') or session.get('github_token', ''),
-        'owner': os.environ.get('GITHUB_OWNER') or session.get('github_owner', ''),
-        'repo':  os.environ.get('GITHUB_REPO')  or session.get('github_repo', ''),
-        'branch': os.environ.get('GITHUB_BRANCH', 'main'),
-    }
+# ── 로그인 ────────────────────────────────────────────────────────────────────
 
-
-def require_config(f):
+def require_login(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        cfg = get_config()
-        if not all([cfg['token'], cfg['owner'], cfg['repo']]):
-            return jsonify({'error': 'GitHub 설정이 필요합니다. /config 에서 설정하세요.'}), 400
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return wrapper
 
 
-# ── Routes ───────────────────────────────────────────────────────────────────
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if APP_PASSWORD and password == APP_PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        error = '비밀번호가 틀렸습니다.'
+    return render_template('login.html', error=error)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
+@require_login
 def index():
-    cfg = get_config()
-    configured = bool(cfg['token'] and cfg['owner'] and cfg['repo'])
-    return render_template('index.html', configured=configured, config=cfg)
-
-
-@app.route('/config', methods=['POST'])
-def save_config():
-    body = request.get_json()
-    session['github_token'] = body.get('token', '').strip()
-    session['github_owner'] = body.get('owner', '').strip()
-    session['github_repo']  = body.get('repo', '').strip()
-    # 연결 테스트
-    cfg = get_config()
-    r = requests.get(
-        f"{GITHUB_API}/repos/{cfg['owner']}/{cfg['repo']}",
-        headers=gh_headers(cfg['token']),
-        timeout=10,
-    )
-    if r.status_code == 200:
-        return jsonify({'status': 'ok', 'repo': r.json().get('full_name')})
-    return jsonify({'error': f"GitHub 연결 실패 ({r.status_code}): {r.json().get('message', '')}"}), 400
+    return render_template('index.html')
 
 
 @app.route('/save', methods=['POST'])
-@require_config
+@require_login
 def save():
     body = request.get_json()
     filename = body.get('filename', '').strip()
@@ -81,61 +73,83 @@ def save():
         filename += '.txt'
     filename = os.path.basename(filename)
 
-    cfg = get_config()
-    path = f"data/{filename}"
-    url  = f"{GITHUB_API}/repos/{cfg['owner']}/{cfg['repo']}/contents/{path}"
-    hdrs = gh_headers(cfg['token'])
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO pastes (filename, content)
+            VALUES (%s, %s)
+            ON CONFLICT (filename) DO UPDATE
+              SET content = EXCLUDED.content,
+                  updated_at = NOW()
+        """, (filename, text))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-    # 이미 존재하면 sha 필요
-    existing = requests.get(url, headers=hdrs, params={'ref': cfg['branch']}, timeout=10)
-    sha = existing.json().get('sha') if existing.status_code == 200 else None
-
-    payload = {
-        'message': f'Add {filename}',
-        'content': base64.b64encode(text.encode('utf-8')).decode(),
-        'branch': cfg['branch'],
-    }
-    if sha:
-        payload['sha'] = sha
-        payload['message'] = f'Update {filename}'
-
-    r = requests.put(url, headers=hdrs, json=payload, timeout=15)
-    if r.status_code in (200, 201):
-        return jsonify({'status': 'ok', 'saved_as': filename})
-    return jsonify({'error': r.json().get('message', '저장 실패')}), r.status_code
+    return jsonify({'status': 'ok', 'saved_as': filename})
 
 
 @app.route('/files')
-@require_config
+@require_login
 def list_files():
-    cfg = get_config()
-    url = f"{GITHUB_API}/repos/{cfg['owner']}/{cfg['repo']}/contents/data"
-    r = requests.get(url, headers=gh_headers(cfg['token']),
-                     params={'ref': cfg['branch']}, timeout=10)
-    if r.status_code == 404:
-        return jsonify([])
-    if r.status_code != 200:
-        return jsonify({'error': r.json().get('message')}), r.status_code
-    files = sorted(
-        f['name'] for f in r.json()
-        if f['type'] == 'file' and f['name'].endswith('.txt')
-    )
-    return jsonify(files)
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT filename FROM pastes ORDER BY filename")
+        files = [row[0] for row in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return jsonify(files)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/files/<filename>')
-@require_config
+@require_login
 def get_file(filename):
     filename = os.path.basename(filename)
-    cfg = get_config()
-    url = f"{GITHUB_API}/repos/{cfg['owner']}/{cfg['repo']}/contents/data/{filename}"
-    r = requests.get(url, headers=gh_headers(cfg['token']),
-                     params={'ref': cfg['branch']}, timeout=10)
-    if r.status_code != 200:
-        return jsonify({'error': 'not found'}), 404
-    content = base64.b64decode(r.json()['content']).decode('utf-8')
-    return jsonify({'filename': filename, 'content': content})
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT content FROM pastes WHERE filename = %s", (filename,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not row:
+            return jsonify({'error': 'not found'}), 404
+        return jsonify({'filename': filename, 'content': row[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/export')
+@require_login
+def export_zip():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT filename, content FROM pastes ORDER BY filename")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for filename, content in rows:
+            zf.writestr(filename, content)
+    buf.seek(0)
+    return send_file(buf, mimetype='application/zip',
+                     as_attachment=True, download_name='pastes.zip')
 
 
 if __name__ == '__main__':
+    if not DATABASE_URL:
+        print('ERROR: DATABASE_URL 환경변수를 설정하세요.')
+        print('Supabase → Settings → Database → Connection string (Transaction mode)')
+        raise SystemExit(1)
     app.run(debug=False, port=5000)
