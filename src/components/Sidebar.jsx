@@ -41,7 +41,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
   }, [filtered, sort]);
 
   return (
-    <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+    <aside className="w-full md:w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
       {/* 검색 + 정렬 */}
       <div className="p-3 border-b border-slate-100 space-y-2">
         <input

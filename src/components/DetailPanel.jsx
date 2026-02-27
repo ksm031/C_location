@@ -7,7 +7,7 @@ const REASON_STYLE = {
   OVERAGE:  'bg-blue-100 text-blue-700',
 };
 
-export default function DetailPanel({ analysis, checks, onCheck, user }) {
+export default function DetailPanel({ analysis, checks, onCheck, user, onBack }) {
   const [sortBy, setSortBy]   = useState('location'); // 'location' | 'time'
   const [filterBy, setFilter] = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
 
@@ -53,12 +53,23 @@ export default function DetailPanel({ analysis, checks, onCheck, user }) {
 
   return (
     <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+      {/* 모바일 뒤로가기 */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="md:hidden flex items-center gap-1.5 px-4 py-2.5 bg-white border-b border-slate-200
+                     text-sm text-blue-600 font-medium flex-shrink-0"
+        >
+          <span>&#8592;</span> 목록으로
+        </button>
+      )}
+
       {/* 상단 정보 헤더 */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-start justify-between gap-4">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex-shrink-0">
+        <div className="flex items-start justify-between gap-3 md:gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-base font-bold text-slate-800">{a.report_id}</span>
+              <span className="font-mono text-sm md:text-base font-bold text-slate-800">{a.report_id}</span>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${REASON_STYLE[a.reason] ?? 'bg-slate-100 text-slate-600'}`}>
                 {a.reason}
               </span>
@@ -77,10 +88,10 @@ export default function DetailPanel({ analysis, checks, onCheck, user }) {
           </div>
 
           {/* 진행률 */}
-          <div className="flex-shrink-0 text-right min-w-[120px]">
-            <div className="text-2xl font-bold text-slate-700">{pct}%</div>
-            <div className="text-xs text-slate-500">{done} / {locs.length} 로케이션</div>
-            <div className="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden w-28">
+          <div className="flex-shrink-0 text-right">
+            <div className="text-xl md:text-2xl font-bold text-slate-700">{pct}%</div>
+            <div className="text-xs text-slate-500">{done} / {locs.length}</div>
+            <div className="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden w-20 md:w-28 ml-auto">
               <div
                 className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-blue-500'}`}
                 style={{ width: `${pct}%` }}
@@ -91,7 +102,7 @@ export default function DetailPanel({ analysis, checks, onCheck, user }) {
       </div>
 
       {/* 정렬 + 필터 컨트롤 */}
-      <div className="px-6 py-2.5 bg-white border-b border-slate-100 flex items-center gap-3 flex-shrink-0">
+      <div className="px-4 md:px-6 py-2.5 bg-white border-b border-slate-100 flex flex-wrap items-center gap-2 md:gap-3 flex-shrink-0">
         <span className="text-xs text-slate-500">정렬:</span>
         <div className="flex gap-1">
           {[['location', '로케이션'], ['time', '진열시각']].map(([val, label]) => (
@@ -107,7 +118,7 @@ export default function DetailPanel({ analysis, checks, onCheck, user }) {
           ))}
         </div>
 
-        <span className="text-xs text-slate-500 ml-3">필터:</span>
+        <span className="text-xs text-slate-500 ml-1 md:ml-3">필터:</span>
         <div className="flex gap-1">
           {[
             ['all',       '전체'],
@@ -129,7 +140,7 @@ export default function DetailPanel({ analysis, checks, onCheck, user }) {
       </div>
 
       {/* 로케이션 목록 */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-2">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-2">
         {locs.length === 0 && (
           <div className="text-center text-slate-400 py-12">
             <p className="text-sm">진열된 로케이션 정보가 없습니다.</p>

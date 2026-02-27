@@ -112,22 +112,29 @@ export default function Layout({ user, onLogout }) {
 
       {/* ── 본문 ── */}
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          analyses={analyses}
-          checks={checks}
-          selected={selected}
-          onSelect={setSelected}
-          onDelete={handleDelete}
-          loading={loadingInit}
-        />
-        <ErrorBoundary key={selected}>
-          <DetailPanel
-            analysis={selectedAnalysis}
-            checks={selectedChecks}
-            onCheck={handleCheck}
-            user={user}
+        {/* 모바일: 선택 없을 때만 표시 / 데스크탑: 항상 표시 */}
+        <div className={`${selected != null ? 'hidden ' : ''}md:block`}>
+          <Sidebar
+            analyses={analyses}
+            checks={checks}
+            selected={selected}
+            onSelect={setSelected}
+            onDelete={handleDelete}
+            loading={loadingInit}
           />
-        </ErrorBoundary>
+        </div>
+        {/* 모바일: 선택 있을 때만 표시 / 데스크탑: 항상 표시 */}
+        <div className={`flex-1 min-w-0 flex flex-col ${selected == null ? 'hidden md:flex' : ''}`}>
+          <ErrorBoundary key={selected}>
+            <DetailPanel
+              analysis={selectedAnalysis}
+              checks={selectedChecks}
+              onCheck={handleCheck}
+              user={user}
+              onBack={() => setSelected(null)}
+            />
+          </ErrorBoundary>
+        </div>
       </div>
 
       {/* ── 붙여넣기 모달 ── */}
