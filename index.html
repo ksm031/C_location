@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>텍스트 붙여넣기 저장</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; height: 100vh; overflow: hidden; }
+
+    /* 사이드바 */
+    #sidebar { width: 240px; background: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow-y: auto; flex-shrink: 0; }
+    #sidebar h2 { font-size: 13px; color: #a6adc8; text-transform: uppercase; letter-spacing: 1px; }
+    #file-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    #file-list li { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; word-break: break-all; transition: background 0.15s; }
+    #file-list li:hover { background: #313244; }
+    #file-list li.active { background: #45475a; font-weight: 600; }
+    #file-list li.placeholder { color: #585b70; font-size: 12px; cursor: default; }
+    #file-list li.placeholder:hover { background: none; }
+    #btn-export { padding: 8px 12px; background: #313244; color: #cdd6f4; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; text-align: center; transition: background 0.15s; margin-top: auto; }
+    #btn-export:hover { background: #45475a; }
+
+    /* 메인 */
+    #main { flex: 1; display: flex; flex-direction: column; padding: 24px; gap: 14px; overflow: hidden; min-width: 0; }
+    #header { display: flex; align-items: center; }
+    h1 { font-size: 20px; color: #1e1e2e; }
+
+    /* 저장 컨트롤 */
+    #controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    #filename-input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 260px; }
+    button { padding: 8px 18px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; transition: opacity 0.2s; }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #btn-save  { background: #4c6ef5; color: #fff; }
+    #btn-clear { background: #e5e7eb; color: #374151; }
+    #status { font-size: 13px; color: #059669; min-height: 18px; }
+    #status.error { color: #dc2626; }
+
+    #paste-area { flex: 1; width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 14px; font-size: 14px; line-height: 1.6; resize: none; background: #fff; font-family: 'Consolas', 'D2Coding', monospace; outline: none; }
+    #paste-area:focus { border-color: #4c6ef5; box-shadow: 0 0 0 3px rgba(76,110,245,0.15); }
+    #char-count { font-size: 12px; color: #9ca3af; text-align: right; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>저장된 파일</h2>
+  <ul id="file-list"><li class="placeholder">불러오는 중...</li></ul>
+  <button id="btn-export">⬇ 전체 zip 다운로드</button>
+</div>
+
+<div id="main">
+  <div id="header">
+    <h1>텍스트 붙여넣기 &amp; 저장</h1>
+  </div>
+
+  <div id="controls">
+    <input id="filename-input" type="text" placeholder="파일명 (비워두면 자동 생성)">
+    <button id="btn-save">저장</button>
+    <button id="btn-clear">지우기</button>
+  </div>
+
+  <div id="status"></div>
+  <textarea id="paste-area" placeholder="인트라넷 페이지에서 Ctrl+A → Ctrl+C 후 여기에 Ctrl+V로 붙여넣으세요."></textarea>
+  <div id="char-count">0자</div>
+</div>
+
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- JSZip -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+
+<script>
+  // ── Supabase 설정 ──────────────────────────────────────────────────────────
+  // Supabase 프로젝트의 URL과 anon key를 아래에 입력하세요.
+  // Supabase → Project Settings → API 에서 확인 가능
+  const SUPABASE_URL  = 'https://hzzmbnpjdgoicnacpabc.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6em1ibnBqZGdvaWNuYWNwYWJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxODY3NTAsImV4cCI6MjA4Nzc2Mjc1MH0.8zM3xv7xI9oNANd_8wVSVS_lNeY1Mxn1BuYqmiKQ6x4';
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  const textarea      = document.getElementById('paste-area');
+  const btnSave       = document.getElementById('btn-save');
+  const btnClear      = document.getElementById('btn-clear');
+  const btnExport     = document.getElementById('btn-export');
+  const filenameInput = document.getElementById('filename-input');
+  const statusEl      = document.getElementById('status');
+  const charCount     = document.getElementById('char-count');
+  const fileList      = document.getElementById('file-list');
+
+  textarea.addEventListener('input', () => {
+    charCount.textContent = textarea.value.length.toLocaleString() + '자';
+  });
+
+  // 저장
+  btnSave.addEventListener('click', async () => {
+    const text = textarea.value;
+    if (!text.trim()) { setStatus('붙여넣을 텍스트가 없습니다.', true); return; }
+
+    let filename = filenameInput.value.trim();
+    if (!filename) filename = 'paste_' + new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+    if (!filename.endsWith('.txt')) filename += '.txt';
+
+    btnSave.disabled = true;
+    btnSave.textContent = '저장 중...';
+    try {
+      const { error } = await sb.from('pastes').upsert(
+        { filename, content: text, updated_at: new Date().toISOString() },
+        { onConflict: 'filename' }
+      );
+      if (error) throw error;
+      setStatus('✅ 저장 완료: ' + filename);
+      filenameInput.value = '';
+      loadFileList();
+    } catch (e) {
+      setStatus('저장 실패: ' + e.message, true);
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = '저장';
+    }
+  });
+
+  btnClear.addEventListener('click', () => {
+    textarea.value = '';
+    charCount.textContent = '0자';
+    setStatus('');
+  });
+
+  // ZIP 내보내기
+  btnExport.addEventListener('click', async () => {
+    btnExport.textContent = '준비 중...';
+    try {
+      const { data, error } = await sb.from('pastes').select('filename, content').order('filename');
+      if (error) throw error;
+      const zip = new JSZip();
+      data.forEach(({ filename, content }) => zip.file(filename, content));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'pastes.zip'; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setStatus('내보내기 실패: ' + e.message, true);
+    } finally {
+      btnExport.textContent = '⬇ 전체 zip 다운로드';
+    }
+  });
+
+  function setStatus(msg, isError = false) {
+    statusEl.textContent = msg;
+    statusEl.className = isError ? 'error' : '';
+  }
+
+  async function loadFileList() {
+    try {
+      const { data, error } = await sb.from('pastes').select('filename').order('filename');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        fileList.innerHTML = '<li class="placeholder">저장된 파일 없음</li>';
+        return;
+      }
+      fileList.innerHTML = '';
+      data.forEach(({ filename }) => {
+        const li = document.createElement('li');
+        li.textContent = filename;
+        li.title = filename;
+        li.addEventListener('click', () => loadFile(filename, li));
+        fileList.appendChild(li);
+      });
+    } catch (e) {
+      fileList.innerHTML = '<li class="placeholder">목록 불러오기 실패</li>';
+      console.error(e);
+    }
+  }
+
+  async function loadFile(filename, liEl) {
+    document.querySelectorAll('#file-list li').forEach(l => l.classList.remove('active'));
+    liEl.classList.add('active');
+    try {
+      const { data, error } = await sb.from('pastes').select('content').eq('filename', filename).single();
+      if (error) throw error;
+      textarea.value = data.content;
+      charCount.textContent = data.content.length.toLocaleString() + '자';
+      filenameInput.value = filename.replace(/\.txt$/, '');
+      setStatus('불러옴: ' + filename);
+    } catch (e) {
+      setStatus('불러오기 실패: ' + e.message, true);
+    }
+  }
+
+  loadFileList();
+</script>
+</body>
+</html>
