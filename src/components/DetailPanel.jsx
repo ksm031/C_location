@@ -1,11 +1,18 @@
 import { useState, useMemo } from 'react';
 import LocationAccordion from './LocationAccordion';
-import { formatDate } from '../lib/parser';
 
 const REASON_STYLE = {
-  SHORTAGE: 'bg-orange-100 text-orange-700',
-  OVERAGE:  'bg-blue-100 text-blue-700',
+  SHORTAGE: { badge: 'bg-blue-100 text-blue-700' },
+  OVERAGE:  { badge: 'bg-yellow-100 text-yellow-700' },
 };
+
+/** "2026-02-27T22:15:22+00:00" → "02.27 22:15:22" */
+function cardDate(dateStr) {
+  if (!dateStr) return '';
+  const m = dateStr.match(/\d{4}-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return dateStr;
+  return `${m[1]}.${m[2]} ${m[3]}:${m[4]}:${m[5]}`;
+}
 
 export default function DetailPanel({ analysis, checks, onCheck, user, onBack }) {
   const [sortBy, setSortBy]   = useState('location'); // 'location' | 'time'
@@ -65,39 +72,41 @@ export default function DetailPanel({ analysis, checks, onCheck, user, onBack })
       )}
 
       {/* 상단 정보 헤더 */}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex-shrink-0">
-        <div className="flex items-start justify-between gap-3 md:gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm md:text-base font-bold text-slate-800">{a.report_id}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${REASON_STYLE[a.reason] ?? 'bg-slate-100 text-slate-600'}`}>
-                {a.reason}
-              </span>
-              {completed && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                  ✓ 완료
-                </span>
-              )}
-            </div>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-              <span>신고: {formatDate(a.reported_at)}</span>
-              <span>토트: {a.tote_id}</span>
-              <span>진열자: {a.worker}</span>
-              <span>토트 {a.tote_qty}개 / 진열 {a.placed_qty}개 / 전산 {a.sys_qty}개</span>
-            </div>
-          </div>
+      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex-shrink-0">
+        {/* 행 1: 토트번호 */}
+        <div className="font-mono text-lg md:text-xl font-bold text-slate-800 truncate">
+          {a.tote_id ?? '-'}
+        </div>
 
-          {/* 진행률 */}
-          <div className="flex-shrink-0 text-right">
-            <div className="text-xl md:text-2xl font-bold text-slate-700">{pct}%</div>
-            <div className="text-xs text-slate-500">{done} / {locs.length}</div>
-            <div className="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden w-20 md:w-28 ml-auto">
-              <div
-                className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-blue-500'}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
+        {/* 행 2: 숏/오버 배지 + 완료여부 */}
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).badge}`}>
+            {a.reason}
+          </span>
+          {completed ? (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+              ✓ 완료
+            </span>
+          ) : (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
+              {done}/{locs.length} 진행중
+            </span>
+          )}
+        </div>
+
+        {/* 행 3: 신고시간 · 진열자 · 전산 */}
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-slate-500">
+          <span>{cardDate(a.reported_at)}</span>
+          <span>진열자 {a.worker}</span>
+          <span>전산 {a.sys_qty}개</span>
+        </div>
+
+        {/* 진행률 바 */}
+        <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-blue-500'}`}
+            style={{ width: `${pct}%` }}
+          />
         </div>
       </div>
 
