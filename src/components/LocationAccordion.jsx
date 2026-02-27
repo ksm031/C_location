@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { formatDate } from '../lib/parser';
 
-export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId }) {
+export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcode }) {
   const [open, setOpen] = useState(false);
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
+
+  // 찾아야 할 상품(헤더 바코드)과 일치하는 아이템 계산
+  const isMatch = targetBarcode
+    ? (item) => item.barcode === targetBarcode
+    : () => false;
+  const matchCount = targetBarcode
+    ? items.filter(isMatch).reduce((sum, item) => sum + (item.display_qty ?? 1), 0)
+    : 0;
 
   return (
     <div className={`rounded-xl border transition-colors ${
@@ -26,6 +34,13 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
         <span className="font-mono font-semibold text-sm text-slate-800 flex-1 min-w-0 truncate">
           {location_code}
         </span>
+
+        {/* 검색 일치 수량 배지 */}
+        {matchCount > 0 && (
+          <span className="text-xs font-semibold text-amber-600 flex-shrink-0">
+            {matchCount}개 일치
+          </span>
+        )}
 
         {/* 항목 수 / 수량 */}
         <span className="text-xs text-slate-500 flex-shrink-0">
@@ -82,10 +97,10 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
           {items.map((item, idx) => (
             <div key={idx} className="px-4 py-2.5 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-700" title={item.product_name}>
+                <p className={`text-xs ${isMatch(item) ? 'text-amber-600 font-semibold' : 'text-slate-700'}`} title={item.product_name}>
                   {item.product_name}
                 </p>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                <p className={`text-xs font-mono mt-0.5 ${isMatch(item) ? 'text-amber-500' : 'text-slate-400'}`}>
                   {item.barcode}
                 </p>
                 {item.display_worker && (

@@ -11,6 +11,7 @@ export default function Layout({ user, onLogout }) {
   const [selected, setSelected]     = useState(null); // 선택된 analysis_id
   const [showPaste, setShowPaste]   = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
+  const [search, setSearch]         = useState('');   // 사이드바 검색어
 
   // ── 분석 목록 로드 ─────────────────────────────────────────────
   const loadAnalyses = useCallback(async () => {
@@ -138,6 +139,8 @@ export default function Layout({ user, onLogout }) {
             onSelect={setSelected}
             onDelete={handleDelete}
             loading={loadingInit}
+            search={search}
+            onSearchChange={setSearch}
           />
         </div>
         {/* 모바일: 선택 있을 때만 표시 / 데스크탑: 항상 표시 */}
@@ -150,6 +153,7 @@ export default function Layout({ user, onLogout }) {
               onUncheck={handleUncheck}
               user={user}
               onBack={() => setSelected(null)}
+              search={search}
             />
           </ErrorBoundary>
         </div>
