@@ -91,6 +91,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
     return true;
   });
   const targetBarcodes = uniqueProducts.map(p => p.barcode);
+  const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
   const diffQty = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${a.placed_qty}개`;
 
   // 정렬
@@ -140,6 +141,9 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).badge}`}>
             {a.reason}
           </span>
+          {hasBothIssues && (
+            <span className="text-xs text-slate-500 font-medium">+ SHORTAGE</span>
+          )}
           {completed ? (
             <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
               ✓ 완료
