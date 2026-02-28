@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import LocationAccordion from './LocationAccordion';
+import { getImgs } from '../lib/imageUtils';
 
 /** Code 128 바코드 SVG 컴포넌트 */
 function Barcode128({ value }) {
@@ -38,6 +39,29 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
   const [filterBy, setFilter]     = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
   const [barcodeExpanded, setBarcodeExpanded] = useState(false);
+  const [productImages, setProductImages]     = useState({}); // { barcode: dataUrl }
+
+  // analysis 바뀌면 이미지 캐시 초기화
+  useEffect(() => {
+    setProductImages({});
+    setBarcodeExpanded(false);
+  }, [analysis?.id]);
+
+  // 아코디언 열릴 때 이미지 fetch
+  useEffect(() => {
+    if (!barcodeExpanded || !analysis) return;
+    const seen = new Set();
+    const barcodes = (analysis.locations ?? [])
+      .flatMap(l => l.items ?? [])
+      .filter(item => {
+        if (seen.has(item.barcode)) return false;
+        seen.add(item.barcode);
+        return true;
+      })
+      .map(item => item.barcode);
+    if (!barcodes.length) return;
+    getImgs(barcodes).then(setProductImages);
+  }, [barcodeExpanded, analysis?.id]);
 
   if (!analysis) {
     return (
@@ -181,6 +205,13 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
                       </span>
                       <span className="text-slate-500 truncate">{item.product_name}</span>
                     </div>
+                    {productImages[item.barcode] && (
+                      <img
+                        src={productImages[item.barcode]}
+                        alt=""
+                        className="mt-1 h-28 rounded-lg border border-slate-200 object-cover"
+                      />
+                    )}
                     <div className="overflow-x-auto">
                       <Barcode128 value={item.barcode} />
                     </div>
