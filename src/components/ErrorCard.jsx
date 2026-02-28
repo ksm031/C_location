@@ -53,13 +53,15 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
           : `border-slate-200 ${style.bg} hover:border-slate-300 hover:shadow-sm`
         }`}
     >
-      {/* 행 1: 배지 + 작업자 + 삭제 */}
+      {/* 행 1: 토트번호 + 배지 + 삭제 */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-2 min-w-0">
+          <span className="font-mono text-xs font-semibold text-slate-700 truncate">
+            {a.tote_id ?? '-'}
+          </span>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${style.badge}`}>
             {style.label}
           </span>
-          <span className="text-xs text-slate-500 truncate">{a.worker}</span>
         </div>
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -70,10 +72,8 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         </button>
       </div>
 
-      {/* 행 2: 토트번호 */}
-      <div className="font-mono text-xs font-semibold text-slate-700 truncate">
-        {a.tote_id ?? '-'}
-      </div>
+      {/* 행 2: 진열자 */}
+      <div className="text-xs text-slate-500">{a.worker}</div>
 
       {/* 행 3: 신고 시각 */}
       <div className="text-xs text-slate-400">{cardDate(a.reported_at)}</div>
