@@ -1,5 +1,25 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import JsBarcode from 'jsbarcode';
 import LocationAccordion from './LocationAccordion';
+
+/** Code 128 바코드 SVG 컴포넌트 */
+function Barcode128({ value }) {
+  const svgRef = useRef(null);
+  useEffect(() => {
+    if (!svgRef.current || !value) return;
+    try {
+      JsBarcode(svgRef.current, value, {
+        format: 'CODE128',
+        width: 1.2,
+        height: 32,
+        margin: 4,
+        displayValue: false,
+      });
+    } catch (_) { /* 잘못된 바코드 값 무시 */ }
+  }, [value]);
+  if (!value) return null;
+  return <svg ref={svgRef} className="max-w-full" />;
+}
 
 const REASON_STYLE = {
   SHORTAGE: { badge: 'bg-blue-100 text-blue-700' },
@@ -106,13 +126,19 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
 
         {/* 행 4: 바코드 (상품명) · 찾아야하는 갯수 */}
         {firstItem && (
-          <div className="flex items-baseline gap-1.5 mt-1 text-xs">
-            <span className="font-mono text-slate-700 font-medium flex-shrink-0">{firstItem.barcode}</span>
-            <span className="text-slate-500">{firstItem.product_name}</span>
-            <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
-              {diffQty}
-            </span>
-          </div>
+          <>
+            <div className="flex items-baseline gap-1.5 mt-1 text-xs">
+              <span className="font-mono text-slate-700 font-medium flex-shrink-0">{firstItem.barcode}</span>
+              <span className="text-slate-500 truncate">{firstItem.product_name}</span>
+              <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
+                {diffQty}
+              </span>
+            </div>
+            {/* 행 5: Code 128 바코드 이미지 */}
+            <div className="mt-1.5 overflow-x-auto">
+              <Barcode128 value={firstItem.barcode} />
+            </div>
+          </>
         )}
 
         {/* 진행률 바 */}
