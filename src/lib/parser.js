@@ -19,11 +19,18 @@
 const REPORT_ROW = /^(\d{2}-\d{8}-\d{5})\t(.+?)\t(.+?)\t(.+?)\t(.+?)\t(.+?)\t(.+?)\t(.*?)\t(\d+)\t(\d+)\t(\d+)\s*$/;
 
 /**
- * 진열 내역 데이터 행 패턴
+ * 진열 내역 데이터 행 패턴 (전체 행)
  * 예: 132016001\t샴푸캡...\tR203666100001\t임병만\t2026-02-27 22:15:15\t66-42C4-49-502\t1
  * 필드: sku_id, product_name, barcode, worker, display_at, location_code, display_qty
  */
 const DISPLAY_ROW = /^(\d+)\t(.+?)\t(\S+)\t(.+?)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t([\w-]+)\t(\d+)\s*$/;
+
+/**
+ * 진열 내역 연속 행 패턴 (같은 SKU, 다른 로케이션 - SKU/상품명/바코드 없이 이어짐)
+ * 예: 56561467\t2026-02-28 18:43:31\t66-32B9-68-104\t26
+ * 필드: worker, display_at, location_code, display_qty
+ */
+const DISPLAY_CONT_ROW = /^(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t([\w-]+)\t(\d+)\s*$/;
 
 // ── 내부 파싱 함수 ──────────────────────────────────────────────────────────
 
@@ -39,6 +46,7 @@ function parseSectionLines(lines) {
   let inDisplay = false;
   let passedExcelBtn = false;
   const displayRows = [];
+  let lastDisplayRow = null; // 연속 행을 위해 직전 전체 행 보관
 
   for (const line of lines) {
     // ① 오류보고 헤더 행 파싱 (아직 못 찾은 경우)
@@ -92,17 +100,33 @@ function parseSectionLines(lines) {
         continue;
       }
 
-      // 진열 내역 데이터 행 파싱
+      // 진열 내역 전체 행 파싱
       const m = DISPLAY_ROW.exec(line);
       if (m) {
-        displayRows.push({
-          sku_id:        m[1],
-          product_name:  m[2],
-          barcode:       m[3],
+        lastDisplayRow = {
+          sku_id:         m[1],
+          product_name:   m[2],
+          barcode:        m[3],
           display_worker: m[4],
-          display_at:    m[5],
-          location_code: m[6],
-          display_qty:   parseInt(m[7]),
+          display_at:     m[5],
+          location_code:  m[6],
+          display_qty:    parseInt(m[7]),
+        };
+        displayRows.push(lastDisplayRow);
+        continue;
+      }
+
+      // 진열 내역 연속 행 파싱 (SKU 생략, 같은 SKU 다른 로케이션)
+      const mc = DISPLAY_CONT_ROW.exec(line);
+      if (mc && lastDisplayRow) {
+        displayRows.push({
+          sku_id:         lastDisplayRow.sku_id,
+          product_name:   lastDisplayRow.product_name,
+          barcode:        lastDisplayRow.barcode,
+          display_worker: mc[1],
+          display_at:     mc[2],
+          location_code:  mc[3],
+          display_qty:    parseInt(mc[4]),
         });
       }
     }
