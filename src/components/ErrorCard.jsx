@@ -47,7 +47,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   return (
     <div
       onClick={onSelect}
-      className={`rounded-xl border cursor-pointer transition-all select-none p-3 space-y-1.5 overflow-hidden
+      className={`w-full rounded-xl border cursor-pointer transition-all select-none p-3 space-y-1.5 overflow-hidden
         ${selected
           ? 'border-blue-400 bg-blue-50 shadow-sm'
           : `border-slate-200 ${style.bg} hover:border-slate-300 hover:shadow-sm`
