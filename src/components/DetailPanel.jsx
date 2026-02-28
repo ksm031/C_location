@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import LocationAccordion from './LocationAccordion';
+import { getImg } from '../lib/imageUtils';
 
 /** Code 128 바코드 SVG 컴포넌트 */
 function Barcode128({ value }) {
@@ -172,20 +173,30 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
             {/* 바코드 목록 (펼쳤을 때) - max-h 스크롤로 헤더 overflow 방지 */}
             {barcodeExpanded && (
               <div className="mt-1.5 border-t border-slate-100 pt-1.5 max-h-60 overflow-y-auto space-y-1.5">
-                {uniqueProducts.map(item => (
-                  <div key={item.barcode}>
-                    <div className="flex items-baseline gap-1.5 text-xs">
-                      <span className="font-mono text-slate-700 font-medium flex-shrink-0">
-                        {item.barcode.slice(0, -3)}
-                        <span className="font-bold">{item.barcode.slice(-3)}</span>
-                      </span>
-                      <span className="text-slate-500 truncate">{item.product_name}</span>
+                {uniqueProducts.map(item => {
+                  const imgDataUrl = getImg(item.barcode);
+                  return (
+                    <div key={item.barcode}>
+                      <div className="flex items-baseline gap-1.5 text-xs">
+                        <span className="font-mono text-slate-700 font-medium flex-shrink-0">
+                          {item.barcode.slice(0, -3)}
+                          <span className="font-bold">{item.barcode.slice(-3)}</span>
+                        </span>
+                        <span className="text-slate-500 truncate">{item.product_name}</span>
+                      </div>
+                      {imgDataUrl && (
+                        <img
+                          src={imgDataUrl}
+                          alt=""
+                          className="mt-1 h-28 rounded-lg border border-slate-200 object-cover"
+                        />
+                      )}
+                      <div className="overflow-x-auto">
+                        <Barcode128 value={item.barcode} />
+                      </div>
                     </div>
-                    <div className="overflow-x-auto">
-                      <Barcode128 value={item.barcode} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
