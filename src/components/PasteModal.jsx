@@ -247,7 +247,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-bold text-slate-800">{r.report_id}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      r.reason === 'SHORTAGE' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                      r.reason === 'SHORTAGE' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
                     }`}>
                       {r.reason}
                     </span>
