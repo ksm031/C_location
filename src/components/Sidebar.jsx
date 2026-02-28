@@ -76,7 +76,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
       </div>
 
       {/* 목록 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5">
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-2 space-y-1.5">
         {loading && (
           <p className="text-xs text-slate-400 text-center py-8">불러오는 중...</p>
         )}
