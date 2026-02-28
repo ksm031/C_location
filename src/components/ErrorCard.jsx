@@ -21,7 +21,9 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   const a     = analysis;
   const locs  = a.locations ?? [];
   const total = locs.length;
-  const done  = locs.filter(l => checks[l.location_code]).length;
+  const done         = locs.filter(l => checks[l.location_code]).length;
+  const foundCount   = locs.filter(l => checks[l.location_code]?.result === 'found').length;
+  const notFoundCount = locs.filter(l => checks[l.location_code]?.result === 'not_found').length;
   const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
   const completed = total > 0 && done === total;
 
@@ -43,7 +45,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   return (
     <div
       onClick={onSelect}
-      className={`rounded-xl border cursor-pointer transition-all select-none p-3 space-y-1.5
+      className={`rounded-xl border cursor-pointer transition-all select-none p-3 space-y-1.5 overflow-hidden
         ${selected
           ? 'border-blue-400 bg-blue-50 shadow-sm'
           : `border-slate-200 ${style.bg} hover:border-slate-300 hover:shadow-sm`
@@ -89,7 +91,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
       {/* 행 5: 대표 로케이션 */}
       {shownLocs.length > 0 && (
-        <div className="text-xs text-slate-500 font-mono">
+        <div className="text-xs text-slate-500 font-mono truncate">
           {shownLocs.join('  ')}
           {extraLocs > 0 && <span className="text-slate-400 ml-1">+{extraLocs}</span>}
         </div>
@@ -110,6 +112,21 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
               style={{ width: `${pct}%` }}
             />
           </div>
+        </div>
+      )}
+
+      {/* 결과 배지: 찾음은 하나만 눌러도 표시, 찾음 있으면 없음 숨김 */}
+      {(completed || foundCount > 0 || (notFoundCount > 0 && foundCount === 0)) && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {completed && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✓ 완료</span>
+          )}
+          {foundCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">찾음 {foundCount}</span>
+          )}
+          {notFoundCount > 0 && foundCount === 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 font-medium">없음 {notFoundCount}</span>
+          )}
         </div>
       )}
 

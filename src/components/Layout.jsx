@@ -147,7 +147,7 @@ export default function Layout({ user, onLogout }) {
       {/* ── 본문 ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* 모바일: 선택 없을 때만 표시 / 데스크탑: 항상 표시 */}
-        <div className={`${selected != null ? 'hidden ' : ''}md:block`}>
+        <div className={`${selected != null ? 'hidden ' : 'flex-1 '}md:flex-none md:block`}>
           <Sidebar
             analyses={analyses}
             checks={checks}

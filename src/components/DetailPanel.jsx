@@ -109,22 +109,22 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
             {a.reason}
           </span>
           {completed ? (
-            <>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                ✓ 완료
-              </span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
-                발견 {foundCount}
-              </span>
-              {notFoundCount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">
-                  없음 {notFoundCount}
-                </span>
-              )}
-            </>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+              ✓ 완료
+            </span>
           ) : (
             <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
               {done}/{locs.length} 진행중
+            </span>
+          )}
+          {foundCount > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
+              발견 {foundCount}
+            </span>
+          )}
+          {notFoundCount > 0 && foundCount === 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">
+              없음 {notFoundCount}
             </span>
           )}
         </div>
