@@ -1,3 +1,5 @@
+import { sb } from './supabase';
+
 /** 이미지 파일을 최대 maxSize px JPEG base64로 압축 */
 export function compressImage(file, maxSize = 400) {
   return new Promise((resolve, reject) => {
@@ -22,5 +24,21 @@ export function compressImage(file, maxSize = 400) {
   });
 }
 
-export const getImg = (barcode) => localStorage.getItem(`ps_img_${barcode}`);
-export const setImg = (barcode, dataUrl) => localStorage.setItem(`ps_img_${barcode}`, dataUrl);
+/** 단일 바코드 이미지를 DB에 저장 (upsert) */
+export async function saveImg(barcode, dataUrl) {
+  const { error } = await sb.from('product_images').upsert(
+    { barcode, image_data: dataUrl, updated_at: new Date().toISOString() },
+    { onConflict: 'barcode' }
+  );
+  if (error) console.error('이미지 저장 오류:', error.message);
+}
+
+/** 여러 바코드의 이미지를 한 번에 조회 → { barcode: dataUrl } */
+export async function getImgs(barcodes) {
+  if (!barcodes?.length) return {};
+  const { data } = await sb
+    .from('product_images')
+    .select('barcode, image_data')
+    .in('barcode', barcodes);
+  return Object.fromEntries((data ?? []).map(r => [r.barcode, r.image_data]));
+}

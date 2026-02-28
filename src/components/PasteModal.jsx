@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { parseText } from '../lib/parser';
 import { sb } from '../lib/supabase';
-import { compressImage, setImg } from '../lib/imageUtils';
+import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
 function ImageZone({ barcode, productName, dataUrl, onSet, onClear }) {
@@ -114,14 +114,16 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setStep('preview');
   };
 
-  /* ── 저장 (이미지 → localStorage, 분석 → DB) ── */
+  /* ── 저장 (이미지 → DB, 분석 → DB) ── */
   const handleSave = async () => {
     if (!parsed?.reports?.length) return;
     setSaving(true);
 
-    for (const [barcode, dataUrl] of Object.entries(images)) {
-      if (dataUrl) setImg(barcode, dataUrl);
-    }
+    await Promise.all(
+      Object.entries(images)
+        .filter(([, dataUrl]) => dataUrl)
+        .map(([barcode, dataUrl]) => saveImg(barcode, dataUrl))
+    );
 
     let saved = 0, skipped = 0;
     for (const r of parsed.reports) {
@@ -289,7 +291,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
           <>
             <div className="flex-1 overflow-y-auto p-6">
               <p className="text-xs text-slate-500 mb-3">
-                각 상품에 이미지를 첨부할 수 있습니다. 이미지는 선택사항이며 이 기기에만 저장됩니다.
+                각 상품에 이미지를 첨부할 수 있습니다. 이미지는 선택사항이며 모든 기기에서 공유됩니다.
               </p>
               <div className="space-y-2">
                 {uniqueProducts.map(p => (
