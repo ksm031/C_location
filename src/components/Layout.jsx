@@ -18,15 +18,24 @@ export default function Layout({ user, onLogout }) {
     const { data, error } = await sb
       .from('analyses')
       .select('*')
+      .eq('created_by', user.nickname)
       .order('reported_at', { ascending: false });
     if (!error && data) setAnalyses(data);
-  }, []);
+  }, [user.nickname]);
 
   // ── 체크 결과 로드 ─────────────────────────────────────────────
   const loadChecks = useCallback(async () => {
+    // 자기 analyses 의 id 목록을 먼저 가져와서 해당 체크만 조회
+    const { data: ids } = await sb
+      .from('analyses')
+      .select('id')
+      .eq('created_by', user.nickname);
+    if (!ids?.length) { setChecks({}); return; }
+
     const { data, error } = await sb
       .from('location_checks')
-      .select('*');
+      .select('*')
+      .in('analysis_id', ids.map(r => r.id));
     if (!error && data) {
       const map = {};
       for (const row of data) {
@@ -123,10 +132,10 @@ export default function Layout({ user, onLogout }) {
     if (selected === analysisId) setSelected(null);
   };
 
-  // ── 전체 삭제 ────────────────────────────────────────────────
+  // ── 전체 삭제 (본인 등록분만) ─────────────────────────────────
   const handleDeleteAll = async () => {
     if (!window.confirm(`전체 ${analyses.length}건을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
-    await sb.from('analyses').delete().gte('created_at', '1970-01-01');
+    await sb.from('analyses').delete().eq('created_by', user.nickname);
     setSelected(null);
   };
 
