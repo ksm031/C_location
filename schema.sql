@@ -30,15 +30,28 @@ CREATE TABLE IF NOT EXISTS location_checks (
   UNIQUE(analysis_id, location_code)
 );
 
+-- 3. 앱 전역 설정 (기기 간 공유 - daily_reset_date 등)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT ''
+);
+
+-- 초기값 삽입 (이미 존재하면 무시)
+INSERT INTO app_settings (key, value)
+VALUES ('daily_reset_date', '')
+ON CONFLICT (key) DO NOTHING;
+
 -- ================================================================
 -- RLS (Row Level Security) 설정
 -- anon key 로 읽기/쓰기 모두 허용 (내부 인트라넷 도구)
 -- ================================================================
 ALTER TABLE analyses       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE location_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_settings   ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "anon_all_analyses" ON analyses;
 DROP POLICY IF EXISTS "anon_all_location_checks" ON location_checks;
+DROP POLICY IF EXISTS "anon_all_app_settings" ON app_settings;
 
 CREATE POLICY "anon_all_analyses"
   ON analyses FOR ALL TO anon
@@ -46,6 +59,10 @@ CREATE POLICY "anon_all_analyses"
 
 CREATE POLICY "anon_all_location_checks"
   ON location_checks FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "anon_all_app_settings"
+  ON app_settings FOR ALL TO anon
   USING (true) WITH CHECK (true);
 
 -- ================================================================
