@@ -103,8 +103,8 @@ export default function Layout({ user, onLogout }) {
           .maybeSingle();
 
         if (setting?.value !== todayKey) {
-          // starred_locations 먼저 삭제 (CASCADE 미보장 대비)
-          await sb.from('starred_locations').delete().gte('created_at', '1970-01-01');
+          // starred_locations 먼저 삭제 (CASCADE 미보장 대비, created_at 없으므로 analysis_id 기준)
+          await sb.from('starred_locations').delete().not('analysis_id', 'is', null);
           // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
           await sb.from('analyses').delete().gte('created_at', '1970-01-01');
           await sb.from('app_settings')
