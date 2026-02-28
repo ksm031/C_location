@@ -108,7 +108,7 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
                   {item.product_name}
                 </p>
                 <p className={`text-xs font-mono mt-0.5 ${isMatch(item) ? 'text-amber-500' : 'text-slate-400'}`}>
-                  {item.barcode}
+                  {item.barcode.slice(0, -3)}<span className="font-bold">{item.barcode.slice(-3)}</span>
                 </p>
                 {item.display_worker && (
                   <p className="text-xs text-slate-400 mt-0.5">
