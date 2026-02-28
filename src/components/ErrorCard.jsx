@@ -91,7 +91,11 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
             )}
             <span className={`flex-shrink-0 font-medium ${style.countColor}`}>{diffLabel}</span>
           </div>
-          <div className="text-slate-400 truncate w-full">{firstItem.product_name}</div>
+          <div className="text-slate-400">
+            {firstItem.product_name.length > 22
+              ? firstItem.product_name.slice(0, 22) + '…'
+              : firstItem.product_name}
+          </div>
         </div>
       ) : (
         <div className="text-xs text-slate-400">{diffLabel}</div>
