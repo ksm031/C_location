@@ -16,6 +16,7 @@ export default function Layout({ user, onLogout }) {
   const [showSysItems, setShowSysItems] = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
+  const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
 
   // ── 분석 목록 로드 ─────────────────────────────────────────────
   const loadAnalyses = useCallback(async () => {
@@ -25,6 +26,29 @@ export default function Layout({ user, onLogout }) {
       .eq('created_by', user.nickname)
       .order('reported_at', { ascending: false });
     if (!error && data) setAnalyses(data);
+  }, [user.nickname]);
+
+  // ── 관심 로케이션 로드 ────────────────────────────────────────
+  const loadStars = useCallback(async () => {
+    const { data: ids } = await sb
+      .from('analyses')
+      .select('id')
+      .eq('created_by', user.nickname);
+    if (!ids?.length) { setStars({}); return; }
+
+    const { data, error } = await sb
+      .from('starred_locations')
+      .select('analysis_id, location_code')
+      .in('analysis_id', ids.map(r => r.id))
+      .eq('starred_by', user.nickname);
+    if (!error && data) {
+      const map = {};
+      for (const row of data) {
+        if (!map[row.analysis_id]) map[row.analysis_id] = {};
+        map[row.analysis_id][row.location_code] = true;
+      }
+      setStars(map);
+    }
   }, [user.nickname]);
 
   // ── 체크 결과 로드 ─────────────────────────────────────────────
@@ -78,7 +102,7 @@ export default function Layout({ user, onLogout }) {
         }
       }
 
-      await Promise.all([loadAnalyses(), loadChecks()]);
+      await Promise.all([loadAnalyses(), loadChecks(), loadStars()]);
       setLoadingInit(false);
     };
 
@@ -92,7 +116,11 @@ export default function Layout({ user, onLogout }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'location_checks' }, loadChecks)
       .subscribe();
 
-    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); };
+    const ch3 = sb.channel('stars-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, loadStars)
+      .subscribe();
+
+    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); };
   }, [loadAnalyses, loadChecks]);
 
   // ── 체크 결과 저장/업데이트 ───────────────────────────────────
@@ -129,6 +157,30 @@ export default function Layout({ user, onLogout }) {
       .eq('location_code', locationCode);
   };
 
+  // ── 관심 로케이션 토글 ────────────────────────────────────────
+  const handleStarToggle = async (analysisId, locationCode) => {
+    const isStarred = !!stars[analysisId]?.[locationCode];
+    // 낙관적 업데이트
+    setStars(prev => {
+      const aStars = { ...prev[analysisId] };
+      if (isStarred) delete aStars[locationCode];
+      else aStars[locationCode] = true;
+      return { ...prev, [analysisId]: aStars };
+    });
+    if (isStarred) {
+      await sb.from('starred_locations')
+        .delete()
+        .eq('analysis_id', analysisId)
+        .eq('location_code', locationCode)
+        .eq('starred_by', user.nickname);
+    } else {
+      await sb.from('starred_locations').upsert(
+        { analysis_id: analysisId, location_code: locationCode, starred_by: user.nickname },
+        { onConflict: 'analysis_id,location_code,starred_by' }
+      );
+    }
+  };
+
   // ── 삭제 ──────────────────────────────────────────────────────
   const handleDelete = async (analysisId) => {
     if (!window.confirm('이 오류보고를 목록에서 삭제할까요?')) return;
@@ -145,6 +197,7 @@ export default function Layout({ user, onLogout }) {
 
   const selectedAnalysis = analyses.find(a => a.id === selected) ?? null;
   const selectedChecks   = selected ? (checks[selected] ?? {}) : {};
+  const selectedStars    = selected ? (stars[selected]  ?? {}) : {};
 
   return (
     <div className="h-screen flex flex-col bg-slate-100">
@@ -227,6 +280,8 @@ export default function Layout({ user, onLogout }) {
               checks={selectedChecks}
               onCheck={handleCheck}
               onUncheck={handleUncheck}
+              stars={selectedStars}
+              onStarToggle={handleStarToggle}
               user={user}
               onBack={() => setSelected(null)}
               search={search}

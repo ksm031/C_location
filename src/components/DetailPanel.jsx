@@ -35,7 +35,7 @@ function cardDate(dateStr) {
   return `${m[1]}.${m[2]} ${m[3]}:${m[4]}:${m[5]}`;
 }
 
-export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user, onBack, search }) {
+export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, search }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
   const [filterBy, setFilter]     = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
   const [barcodeExpanded, setBarcodeExpanded] = useState(false);
@@ -115,8 +115,9 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
   const visibleLocs = useMemo(() => {
     if (filterBy === 'all') return sortedLocs;
     if (filterBy === 'unchecked') return sortedLocs.filter(l => !checks[l.location_code]);
+    if (filterBy === 'starred') return sortedLocs.filter(l => stars[l.location_code]);
     return sortedLocs.filter(l => checks[l.location_code]?.result === filterBy);
-  }, [sortedLocs, filterBy, checks]);
+  }, [sortedLocs, filterBy, checks, stars]);
 
   return (
     <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
@@ -261,6 +262,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
             ['unchecked', '미체크'],
             ['found',     '발견'],
             ['not_found', '없음'],
+            ['starred',   '★ 관심'],
           ].map(([val, label]) => (
             <button
               key={val}
@@ -297,6 +299,8 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
             onUncheck={onUncheck}
             analysisId={a.id}
             targetBarcodes={targetBarcodes}
+            starred={!!stars[loc.location_code]}
+            onStarToggle={onStarToggle}
           />
         ))}
       </div>
