@@ -62,9 +62,11 @@ export default function MemoModal({ user, onClose }) {
     const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const date = new Date().toISOString().slice(0, 10);
+    const now  = new Date();
+    const pad  = (n) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
     a.href     = url;
-    a.download = `메모_${date}.txt`;
+    a.download = `메모_${stamp}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
