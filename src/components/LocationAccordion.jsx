@@ -17,6 +17,9 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
     ? items.filter(isMatch).reduce((sum, item) => sum + (item.display_qty ?? 1), 0)
     : 0;
 
+  // 이 로케이션의 고유 SKU 수 (같은 바코드 복수 진열 행은 1종으로 집계)
+  const uniqueSkuCount = new Set(items.map(i => i.barcode)).size;
+
   // 이 로케이션의 진열자 목록 (중복 제거)
   const workers = [...new Set(items.map(i => i.display_worker).filter(Boolean))];
 
@@ -49,7 +52,7 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
             </span>
           )}
           <span className="text-xs text-slate-400">
-            {items.length}종 {total_qty}개
+            {uniqueSkuCount}종 {total_qty}개
           </span>
           {matchCount > 0 && (
             <span className="text-xs font-semibold text-amber-600">
