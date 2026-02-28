@@ -38,60 +38,54 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
           </span>
         </div>
 
-        {/* 2행: 진열자 · 종수/수량 배지 · 체크 버튼 */}
-        <div className="flex items-center gap-2 mt-1.5 pl-4">
-          {/* 진열자 목록 */}
+        {/* 2행: 진열자 · 종수/수량 · 일치배지 */}
+        <div className="flex items-center gap-2 mt-1 pl-4 flex-wrap">
           {workers.length > 0 && (
-            <span className="text-xs text-slate-500 flex-1 min-w-0">
+            <span className="text-xs text-slate-500 truncate max-w-[140px]">
               진열자 {workers.join(' · ')}
             </span>
           )}
-          {!workers.length && <span className="flex-1" />}
-
-          {/* 일치 배지 */}
+          <span className="text-xs text-slate-400">
+            {items.length}종 {total_qty}개
+          </span>
           {matchCount > 0 && (
-            <span className="text-xs font-semibold text-amber-600 flex-shrink-0">
+            <span className="text-xs font-semibold text-amber-600">
               {matchCount}개 일치
             </span>
           )}
+        </div>
 
-          {/* 종수 / 수량 */}
-          <span className="text-xs text-slate-500 flex-shrink-0">
-            {items.length}종 {total_qty}개
-          </span>
-
-          {/* 체크 버튼 */}
-          <div className="flex gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        {/* 3행: 체크 버튼 */}
+        <div className="flex gap-2 mt-2 pl-4" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => onCheck(analysisId, location_code, 'found')}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              result === 'found'
+                ? 'bg-green-500 hover:bg-green-600 text-white'
+                : 'bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-700'
+            }`}
+          >
+            발견
+          </button>
+          <button
+            onClick={() => onCheck(analysisId, location_code, 'not_found')}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              result === 'not_found'
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : 'bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700'
+            }`}
+          >
+            없음
+          </button>
+          {result && (
             <button
-              onClick={() => onCheck(analysisId, location_code, 'found')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                result === 'found'
-                  ? 'bg-green-500 hover:bg-green-600 text-white'
-                  : 'bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-700'
-              }`}
+              onClick={() => onUncheck(analysisId, location_code)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-200 hover:bg-slate-300 text-slate-500 hover:text-slate-700 transition-colors"
+              title="체크 취소"
             >
-              발견
+              ↩
             </button>
-            <button
-              onClick={() => onCheck(analysisId, location_code, 'not_found')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                result === 'not_found'
-                  ? 'bg-red-500 hover:bg-red-600 text-white'
-                  : 'bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700'
-              }`}
-            >
-              없음
-            </button>
-            {result && (
-              <button
-                onClick={() => onUncheck(analysisId, location_code)}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-200 hover:bg-slate-300 text-slate-500 hover:text-slate-700 transition-colors"
-                title="체크 취소"
-              >
-                ↩
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 

@@ -163,6 +163,7 @@ export default function Layout({ user, onLogout }) {
         <div className={`flex-1 min-w-0 flex flex-col ${selected == null ? 'hidden md:flex' : ''}`}>
           <ErrorBoundary key={selected}>
             <DetailPanel
+              key={selected}
               analysis={selectedAnalysis}
               checks={selectedChecks}
               onCheck={handleCheck}
