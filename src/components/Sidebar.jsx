@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import ErrorCard from './ErrorCard';
 
-export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, loading, search, onSearchChange }) {
+export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, onDeleteAll, loading, search, onSearchChange }) {
   const [sort, setSort] = useState('location'); // 'location' | 'reported_at'
 
   // 검색 필터
@@ -76,7 +76,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
       </div>
 
       {/* 목록 */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5">
         {loading && (
           <p className="text-xs text-slate-400 text-center py-8">불러오는 중...</p>
         )}
@@ -97,10 +97,17 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
         ))}
       </div>
 
-      {/* 하단 카운트 */}
-      <div className="px-3 py-2 border-t border-slate-100 text-xs text-slate-400">
-        총 {analyses.length}건
-        {search && ` (필터: ${filtered.length}건)`}
+      {/* 하단 카운트 + 전체 삭제 */}
+      <div className="px-3 py-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+        <span>총 {analyses.length}건{search && ` (필터: ${filtered.length}건)`}</span>
+        {analyses.length > 0 && (
+          <button
+            onClick={onDeleteAll}
+            className="text-red-400 hover:text-red-600 transition-colors"
+          >
+            전체 삭제
+          </button>
+        )}
       </div>
     </aside>
   );

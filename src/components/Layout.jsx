@@ -113,6 +113,13 @@ export default function Layout({ user, onLogout }) {
     if (selected === analysisId) setSelected(null);
   };
 
+  // ── 전체 삭제 ────────────────────────────────────────────────
+  const handleDeleteAll = async () => {
+    if (!window.confirm(`전체 ${analyses.length}건을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    await sb.from('analyses').delete().gte('created_at', '1970-01-01');
+    setSelected(null);
+  };
+
   const selectedAnalysis = analyses.find(a => a.id === selected) ?? null;
   const selectedChecks   = selected ? (checks[selected] ?? {}) : {};
 
@@ -154,6 +161,7 @@ export default function Layout({ user, onLogout }) {
             selected={selected}
             onSelect={setSelected}
             onDelete={handleDelete}
+            onDeleteAll={handleDeleteAll}
             loading={loadingInit}
             search={search}
             onSearchChange={setSearch}
