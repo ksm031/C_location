@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import ErrorCard from './ErrorCard';
 
 export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, loading, search, onSearchChange }) {
-  const [sort, setSort] = useState('reported_at'); // 'reported_at' | 'location'
+  const [sort, setSort] = useState('location'); // 'location' | 'reported_at'
 
   // 검색 필터
   const filtered = useMemo(() => {
@@ -53,16 +53,6 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
         />
         <div className="flex gap-2">
           <button
-            onClick={() => setSort('reported_at')}
-            className={`flex-1 py-1 text-xs rounded-md transition-colors ${
-              sort === 'reported_at'
-                ? 'bg-blue-100 text-blue-700 font-medium'
-                : 'text-slate-500 hover:bg-slate-100'
-            }`}
-          >
-            신고 시각순
-          </button>
-          <button
             onClick={() => setSort('location')}
             className={`flex-1 py-1 text-xs rounded-md transition-colors ${
               sort === 'location'
@@ -71,6 +61,16 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
             }`}
           >
             로케이션순
+          </button>
+          <button
+            onClick={() => setSort('reported_at')}
+            className={`flex-1 py-1 text-xs rounded-md transition-colors ${
+              sort === 'reported_at'
+                ? 'bg-blue-100 text-blue-700 font-medium'
+                : 'text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            신고 시각순
           </button>
         </div>
       </div>
