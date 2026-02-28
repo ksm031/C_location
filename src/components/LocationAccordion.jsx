@@ -14,70 +14,84 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
     ? items.filter(isMatch).reduce((sum, item) => sum + (item.display_qty ?? 1), 0)
     : 0;
 
+  // 이 로케이션의 진열자 목록 (중복 제거)
+  const workers = [...new Set(items.map(i => i.display_worker).filter(Boolean))];
+
   return (
     <div className={`rounded-xl border transition-colors ${
       result === 'found'     ? 'border-green-300 bg-green-50' :
       result === 'not_found' ? 'border-red-300 bg-red-50'    :
       'border-slate-200 bg-white'
     }`}>
-      {/* 헤더 행 */}
+      {/* 헤더 */}
       <div
-        className="flex items-center gap-3 px-3 py-3 cursor-pointer select-none"
+        className="px-3 pt-3 pb-2 cursor-pointer select-none"
         onClick={() => setOpen(o => !o)}
       >
-        {/* 펼침 아이콘 */}
-        <span className={`text-slate-400 text-xs transition-transform flex-shrink-0 ${open ? 'rotate-90' : ''}`}>
-          ▶
-        </span>
-
-        {/* 로케이션 코드 */}
-        <span className="font-mono font-semibold text-sm text-slate-800 flex-1 min-w-0 truncate">
-          {location_code}
-        </span>
-
-        {/* 검색 일치 수량 배지 */}
-        {matchCount > 0 && (
-          <span className="text-xs font-semibold text-amber-600 flex-shrink-0">
-            {matchCount}개 일치
+        {/* 1행: 펼침 아이콘 + 로케이션 코드 (절대 생략 없음) */}
+        <div className="flex items-center gap-2">
+          <span className={`text-slate-400 text-xs transition-transform flex-shrink-0 ${open ? 'rotate-90' : ''}`}>
+            ▶
           </span>
-        )}
+          <span className="font-mono font-semibold text-sm text-slate-800 break-all">
+            {location_code}
+          </span>
+        </div>
 
-        {/* 항목 수 / 수량 */}
-        <span className="text-xs text-slate-500 flex-shrink-0">
-          {items.length}종 {total_qty}개
-        </span>
-
-        {/* 체크 버튼 */}
-        <div className="flex gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => onCheck(analysisId, location_code, 'found')}
-            className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              result === 'found'
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-700'
-            }`}
-          >
-            발견
-          </button>
-          <button
-            onClick={() => onCheck(analysisId, location_code, 'not_found')}
-            className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              result === 'not_found'
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700'
-            }`}
-          >
-            없음
-          </button>
-          {result && (
-            <button
-              onClick={() => onUncheck(analysisId, location_code)}
-              className="px-3 py-2 rounded-lg text-sm font-medium bg-slate-200 hover:bg-slate-300 text-slate-500 hover:text-slate-700 transition-colors"
-              title="체크 취소"
-            >
-              ↩
-            </button>
+        {/* 2행: 진열자 · 종수/수량 배지 · 체크 버튼 */}
+        <div className="flex items-center gap-2 mt-1.5 pl-4">
+          {/* 진열자 목록 */}
+          {workers.length > 0 && (
+            <span className="text-xs text-slate-500 flex-1 min-w-0">
+              진열자 {workers.join(' · ')}
+            </span>
           )}
+          {!workers.length && <span className="flex-1" />}
+
+          {/* 일치 배지 */}
+          {matchCount > 0 && (
+            <span className="text-xs font-semibold text-amber-600 flex-shrink-0">
+              {matchCount}개 일치
+            </span>
+          )}
+
+          {/* 종수 / 수량 */}
+          <span className="text-xs text-slate-500 flex-shrink-0">
+            {items.length}종 {total_qty}개
+          </span>
+
+          {/* 체크 버튼 */}
+          <div className="flex gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => onCheck(analysisId, location_code, 'found')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                result === 'found'
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-700'
+              }`}
+            >
+              발견
+            </button>
+            <button
+              onClick={() => onCheck(analysisId, location_code, 'not_found')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                result === 'not_found'
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-700'
+              }`}
+            >
+              없음
+            </button>
+            {result && (
+              <button
+                onClick={() => onUncheck(analysisId, location_code)}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-200 hover:bg-slate-300 text-slate-500 hover:text-slate-700 transition-colors"
+                title="체크 취소"
+              >
+                ↩
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
