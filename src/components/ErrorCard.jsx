@@ -125,7 +125,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
             <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">찾음 {foundCount}</span>
           )}
           {notFoundCount > 0 && foundCount === 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 font-medium">없음 {notFoundCount}</span>
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 font-medium">없음</span>
           )}
         </div>
       )}
