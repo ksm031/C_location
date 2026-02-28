@@ -78,10 +78,10 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       {/* 행 3: 신고 시각 */}
       <div className="text-xs text-slate-400">{cardDate(a.reported_at)}</div>
 
-      {/* 행 4: 바코드 + 누락/초과 / 상품명 (줄 분리로 overflow 방지) */}
+      {/* 행 4: 바코드 + 누락/초과 / 상품명 */}
       {firstItem ? (
-        <div className="text-xs space-y-0.5">
-          <div className="flex items-baseline gap-1">
+        <div className="text-xs space-y-0.5 min-w-0 overflow-hidden">
+          <div className="flex items-baseline gap-1 min-w-0 overflow-hidden">
             <span className="font-mono text-slate-600 flex-shrink-0">
               {firstItem.barcode.slice(0, -3)}
               <span className="font-bold">{firstItem.barcode.slice(-3)}</span>
@@ -91,7 +91,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
             )}
             <span className={`flex-shrink-0 font-medium ${style.countColor}`}>{diffLabel}</span>
           </div>
-          <div className="text-slate-400 truncate">{firstItem.product_name}</div>
+          <div className="text-slate-400 truncate w-full">{firstItem.product_name}</div>
         </div>
       ) : (
         <div className="text-xs text-slate-400">{diffLabel}</div>
