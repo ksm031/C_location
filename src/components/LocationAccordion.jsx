@@ -6,9 +6,9 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
 
-  // 로케이션 코드 끝 숫자 홀/짝 → 텍스트 색 구분
-  const locTrailNum = parseInt(location_code.match(/(\d+)\D*$/)?.[1] ?? '0', 10);
-  const locColorClass = locTrailNum % 2 !== 0 ? 'text-slate-900' : 'text-slate-500';
+  // 로케이션 코드의 알파벳 뒤 숫자(예: 23A10 → 10) 홀/짝 → 텍스트 색 구분
+  const locTrailNum = parseInt(location_code.match(/[A-Za-z](\d+)/)?.[1] ?? '0', 10);
+  const locColorClass = locTrailNum % 2 !== 0 ? 'text-blue-900' : 'text-slate-500';
 
   // 찾아야 할 상품(바코드 목록)과 일치하는 아이템 계산
   const isMatch = (item) =>
