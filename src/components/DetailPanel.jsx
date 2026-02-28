@@ -35,8 +35,9 @@ function cardDate(dateStr) {
 }
 
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user, onBack, search }) {
-  const [sortBy, setSortBy]   = useState('location'); // 'location' | 'time'
-  const [filterBy, setFilter] = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
+  const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
+  const [filterBy, setFilter]     = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
+  const [barcodeExpanded, setBarcodeExpanded] = useState(false);
 
   if (!analysis) {
     return (
@@ -143,24 +144,45 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
           <span>전산 {a.sys_qty}개</span>
         </div>
 
-        {/* 행 4: 바코드(들) · 찾아야하는 갯수 */}
+        {/* 행 4: 찾아야하는 갯수 + 바코드 목록 (접기/펼치기) */}
         {uniqueProducts.length > 0 && (
-          <>
-            <div className={`flex-shrink-0 font-semibold mt-1 text-xs ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
-              {diffQty}
+          <div className="mt-1">
+            {/* 요약 줄 (항상 표시) */}
+            <div className="flex items-baseline gap-2 text-xs min-w-0">
+              <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
+                {diffQty}
+              </span>
+              <span className="font-mono text-slate-600 flex-shrink-0">{uniqueProducts[0].barcode}</span>
+              {uniqueProducts.length > 1 && (
+                <span className="text-slate-400 flex-shrink-0">外 {uniqueProducts.length - 1}종</span>
+              )}
+              <span className="text-slate-400 truncate">{uniqueProducts[0].product_name}</span>
+              {/* 펼치기/접기 토글 */}
+              <button
+                onClick={() => setBarcodeExpanded(v => !v)}
+                className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-auto pl-2"
+              >
+                {barcodeExpanded ? '접기 ▲' : '바코드 ▼'}
+              </button>
             </div>
-            {uniqueProducts.map(item => (
-              <div key={item.barcode} className="mt-1">
-                <div className="flex items-baseline gap-1.5 text-xs">
-                  <span className="font-mono text-slate-700 font-medium flex-shrink-0">{item.barcode}</span>
-                  <span className="text-slate-500 truncate">{item.product_name}</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <Barcode128 value={item.barcode} />
-                </div>
+
+            {/* 바코드 목록 (펼쳤을 때) */}
+            {barcodeExpanded && (
+              <div className="mt-1.5 space-y-1.5 border-t border-slate-100 pt-1.5">
+                {uniqueProducts.map(item => (
+                  <div key={item.barcode}>
+                    <div className="flex items-baseline gap-1.5 text-xs">
+                      <span className="font-mono text-slate-700 font-medium flex-shrink-0">{item.barcode}</span>
+                      <span className="text-slate-500 truncate">{item.product_name}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Barcode128 value={item.barcode} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </>
+            )}
+          </div>
         )}
 
         {/* 진행률 바 */}
