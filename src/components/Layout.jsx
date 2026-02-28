@@ -45,14 +45,24 @@ export default function Layout({ user, onLogout }) {
   useEffect(() => {
     const init = async () => {
       // 오전 8시가 지났고 오늘 아직 초기화하지 않은 경우 DB 전체 삭제
+      // 초기화 여부를 Supabase에 저장 → 모든 기기에서 공유
       const now      = new Date();
       const todayKey = now.toISOString().slice(0, 10); // e.g. "2026-02-28"
       const resetAt  = new Date(now); resetAt.setHours(8, 0, 0, 0);
 
-      if (now >= resetAt && localStorage.getItem('daily_reset_date') !== todayKey) {
-        // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
-        await sb.from('analyses').delete().gte('created_at', '1970-01-01');
-        localStorage.setItem('daily_reset_date', todayKey);
+      if (now >= resetAt) {
+        const { data: setting } = await sb
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'daily_reset_date')
+          .maybeSingle();
+
+        if (setting?.value !== todayKey) {
+          // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
+          await sb.from('analyses').delete().gte('created_at', '1970-01-01');
+          await sb.from('app_settings')
+            .upsert({ key: 'daily_reset_date', value: todayKey });
+        }
       }
 
       await Promise.all([loadAnalyses(), loadChecks()]);
