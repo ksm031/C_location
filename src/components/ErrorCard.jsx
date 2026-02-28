@@ -29,8 +29,10 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
 
-  // 대표 상품 (전체 아이템 중 첫 번째)
-  const firstItem = locs.flatMap(l => l.items ?? []).find(Boolean) ?? null;
+  // 대표 상품 (전체 아이템 중 첫 번째) + 유니크 바코드 수
+  const allItems = locs.flatMap(l => l.items ?? []);
+  const firstItem = allItems.find(Boolean) ?? null;
+  const uniqueBarcodeCount = new Set(allItems.map(i => i.barcode)).size;
 
   // 누락/초과 수량 텍스트
   const diffLabel = a.reason === 'SHORTAGE'
@@ -76,14 +78,17 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       {/* 행 3: 신고 시각 */}
       <div className="text-xs text-slate-400">{cardDate(a.reported_at)}</div>
 
-      {/* 행 4: 바코드 (상품명) 누락/초과 N개 */}
+      {/* 행 4: 바코드 + 누락/초과 / 상품명 (줄 분리로 overflow 방지) */}
       {firstItem ? (
-        <div className="flex items-baseline gap-1 min-w-0 text-xs">
-          <span className="font-mono text-slate-600 flex-shrink-0">{firstItem.barcode}</span>
-          <span className="text-slate-400 truncate min-w-0">({firstItem.product_name})</span>
-          <span className={`flex-shrink-0 font-medium ${style.countColor}`}>
-            {diffLabel}
-          </span>
+        <div className="text-xs space-y-0.5">
+          <div className="flex items-baseline gap-1">
+            <span className="font-mono text-slate-600 flex-shrink-0">{firstItem.barcode}</span>
+            {uniqueBarcodeCount > 1 && (
+              <span className="text-slate-400 flex-shrink-0">外 {uniqueBarcodeCount - 1}종</span>
+            )}
+            <span className={`flex-shrink-0 font-medium ${style.countColor}`}>{diffLabel}</span>
+          </div>
+          <div className="text-slate-400 truncate">{firstItem.product_name}</div>
         </div>
       ) : (
         <div className="text-xs text-slate-400">{diffLabel}</div>

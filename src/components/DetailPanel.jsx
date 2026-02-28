@@ -58,8 +58,15 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
   const pct  = locs.length > 0 ? Math.round((done / locs.length) * 100) : 0;
   const completed = locs.length > 0 && done === locs.length;
 
-  const firstItem = locs.flatMap(l => l.items ?? []).find(Boolean) ?? null;
-  const diffQty   = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${a.placed_qty}개`;
+  const allItems = locs.flatMap(l => l.items ?? []);
+  const seenBarcodes = new Set();
+  const uniqueProducts = allItems.filter(item => {
+    if (seenBarcodes.has(item.barcode)) return false;
+    seenBarcodes.add(item.barcode);
+    return true;
+  });
+  const targetBarcodes = uniqueProducts.map(p => p.barcode);
+  const diffQty = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${a.placed_qty}개`;
 
   // 정렬
   const sortedLocs = useMemo(() => {
@@ -136,20 +143,23 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
           <span>전산 {a.sys_qty}개</span>
         </div>
 
-        {/* 행 4: 바코드 (상품명) · 찾아야하는 갯수 */}
-        {firstItem && (
+        {/* 행 4: 바코드(들) · 찾아야하는 갯수 */}
+        {uniqueProducts.length > 0 && (
           <>
-            <div className="flex items-baseline gap-1.5 mt-1 text-xs">
-              <span className="font-mono text-slate-700 font-medium flex-shrink-0">{firstItem.barcode}</span>
-              <span className="text-slate-500 truncate">{firstItem.product_name}</span>
-              <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
-                {diffQty}
-              </span>
+            <div className={`flex-shrink-0 font-semibold mt-1 text-xs ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
+              {diffQty}
             </div>
-            {/* 행 5: Code 128 바코드 이미지 */}
-            <div className="mt-1.5 overflow-x-auto">
-              <Barcode128 value={firstItem.barcode} />
-            </div>
+            {uniqueProducts.map(item => (
+              <div key={item.barcode} className="mt-1">
+                <div className="flex items-baseline gap-1.5 text-xs">
+                  <span className="font-mono text-slate-700 font-medium flex-shrink-0">{item.barcode}</span>
+                  <span className="text-slate-500 truncate">{item.product_name}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <Barcode128 value={item.barcode} />
+                </div>
+              </div>
+            ))}
           </>
         )}
 
@@ -221,7 +231,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
             onCheck={onCheck}
             onUncheck={onUncheck}
             analysisId={a.id}
-            targetBarcode={firstItem?.barcode}
+            targetBarcodes={targetBarcodes}
           />
         ))}
       </div>
