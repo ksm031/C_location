@@ -82,7 +82,10 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       {firstItem ? (
         <div className="text-xs space-y-0.5">
           <div className="flex items-baseline gap-1">
-            <span className="font-mono text-slate-600 flex-shrink-0">{firstItem.barcode}</span>
+            <span className="font-mono text-slate-600 flex-shrink-0">
+              {firstItem.barcode.slice(0, -3)}
+              <span className="font-bold">{firstItem.barcode.slice(-3)}</span>
+            </span>
             {uniqueBarcodeCount > 1 && (
               <span className="text-slate-400 flex-shrink-0">外 {uniqueBarcodeCount - 1}종</span>
             )}
