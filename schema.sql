@@ -87,6 +87,13 @@ ALTER PUBLICATION supabase_realtime ADD TABLE location_checks;
 ALTER PUBLICATION supabase_realtime ADD TABLE memos;
 
 -- ================================================================
+-- 기존 테이블에 컬럼 추가 (이미 테이블이 존재하는 경우 실행)
+-- ================================================================
+ALTER TABLE analyses
+  ADD COLUMN IF NOT EXISTS overage_items        JSONB DEFAULT '[]'::JSONB,
+  ADD COLUMN IF NOT EXISTS tote_remaining_items JSONB DEFAULT '[]'::JSONB;
+
+-- ================================================================
 -- locations JSONB 구조 예시 (참고용)
 -- [
 --   {
