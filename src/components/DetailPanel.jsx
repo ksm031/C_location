@@ -1,25 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import JsBarcode from 'jsbarcode';
+import { useState, useMemo } from 'react';
 import LocationAccordion from './LocationAccordion';
-
-/** Code 128 바코드 SVG 컴포넌트 */
-function Barcode128({ value }) {
-  const svgRef = useRef(null);
-  useEffect(() => {
-    if (!svgRef.current || !value) return;
-    try {
-      JsBarcode(svgRef.current, value, {
-        format: 'CODE128',
-        width: 1.2,
-        height: 32,
-        margin: 4,
-        displayValue: false,
-      });
-    } catch (_) { /* 잘못된 바코드 값 무시 */ }
-  }, [value]);
-  if (!value) return null;
-  return <svg ref={svgRef} className="max-w-full" />;
-}
 
 const REASON_STYLE = {
   SHORTAGE: { badge: 'bg-blue-100 text-blue-700' },
@@ -143,24 +123,18 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
           <span>전산 {a.sys_qty}개</span>
         </div>
 
-        {/* 행 4: 바코드(들) · 찾아야하는 갯수 */}
+        {/* 행 4: 찾아야하는 갯수 + 상품 요약 (한 줄) */}
         {uniqueProducts.length > 0 && (
-          <>
-            <div className={`flex-shrink-0 font-semibold mt-1 text-xs ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
+          <div className="flex items-baseline gap-2 mt-1 text-xs min-w-0">
+            <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
               {diffQty}
-            </div>
-            {uniqueProducts.map(item => (
-              <div key={item.barcode} className="mt-1">
-                <div className="flex items-baseline gap-1.5 text-xs">
-                  <span className="font-mono text-slate-700 font-medium flex-shrink-0">{item.barcode}</span>
-                  <span className="text-slate-500 truncate">{item.product_name}</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <Barcode128 value={item.barcode} />
-                </div>
-              </div>
-            ))}
-          </>
+            </span>
+            <span className="font-mono text-slate-600 flex-shrink-0">{uniqueProducts[0].barcode}</span>
+            {uniqueProducts.length > 1 && (
+              <span className="text-slate-400 flex-shrink-0">外 {uniqueProducts.length - 1}종</span>
+            )}
+            <span className="text-slate-400 truncate">{uniqueProducts[0].product_name}</span>
+          </div>
         )}
 
         {/* 진행률 바 */}
