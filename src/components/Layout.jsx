@@ -101,18 +101,18 @@ export default function Layout({ user, onLogout }) {
   const selectedChecks   = selected ? (checks[selected] ?? {}) : {};
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
+    <div className="h-screen flex flex-col bg-slate-100">
       {/* ── 상단 헤더 ── */}
-      <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200 flex-shrink-0">
+      <header className="flex items-center justify-between px-4 md:px-5 py-3 bg-white/95 backdrop-blur border-b border-slate-200 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-2">
           <span className="text-xl">📦</span>
-          <span className="font-bold text-slate-800 text-sm">PS 업무 보조 도구</span>
+          <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base">PS 업무 보조 도구</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowPaste(true)}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium
-                       rounded-lg transition-colors flex items-center gap-1.5"
+                       rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
           >
             <span>+</span> 붙여넣기
           </button>
