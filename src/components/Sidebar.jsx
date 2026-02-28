@@ -40,7 +40,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
   }, [filtered, sort]);
 
   return (
-    <aside className="w-full md:w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+    <aside className="w-full md:w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col shadow-sm">
       {/* 검색 + 정렬 */}
       <div className="p-3 border-b border-slate-100 space-y-2">
         <input
@@ -48,8 +48,8 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
           value={search}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="보고번호 / 로케이션 / 상품 검색"
-          className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg
-                     focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50/70
+                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition"
         />
         <div className="flex gap-2">
           <button
