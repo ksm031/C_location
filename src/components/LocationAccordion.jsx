@@ -6,6 +6,10 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
 
+  // 로케이션 코드 끝 숫자 홀/짝 → 텍스트 색 구분
+  const locTrailNum = parseInt(location_code.match(/(\d+)\D*$/)?.[1] ?? '0', 10);
+  const locColorClass = locTrailNum % 2 !== 0 ? 'text-slate-900' : 'text-slate-500';
+
   // 찾아야 할 상품(바코드 목록)과 일치하는 아이템 계산
   const isMatch = (item) =>
     targetBarcodes.length > 0 && targetBarcodes.includes(item.barcode);
@@ -32,7 +36,7 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
           <span className={`text-slate-400 text-xs transition-transform flex-shrink-0 ${open ? 'rotate-90' : ''}`}>
             ▶
           </span>
-          <span className="font-mono font-semibold text-sm text-slate-800 break-all">
+          <span className={`font-mono font-semibold text-sm break-all ${locColorClass}`}>
             {location_code}
           </span>
         </div>
