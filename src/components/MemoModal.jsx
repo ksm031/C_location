@@ -52,6 +52,23 @@ export default function MemoModal({ user, onClose }) {
     await sb.from('memos').delete().eq('id', id);
   };
 
+  const handleDownload = () => {
+    if (!memos.length) return;
+    const body = memos
+      .slice()
+      .reverse() // 오래된 순서로
+      .map((m) => `[${formatDate(m.created_at)} · ${m.created_by}]\n${m.content}`)
+      .join('\n\n---\n\n');
+    const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href     = url;
+    a.download = `메모_${date}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const formatDate = (iso) => {
     const d = new Date(iso);
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -72,12 +89,23 @@ export default function MemoModal({ user, onClose }) {
           <span className="font-bold text-slate-800 flex items-center gap-2">
             <span>📝</span> 공유 메모장
           </span>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              disabled={!memos.length}
+              className="px-3 py-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200
+                         hover:border-slate-400 rounded-lg transition-colors disabled:opacity-30"
+              title="전체 메모 txt로 저장"
+            >
+              ↓ txt
+            </button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* 입력 영역 */}
