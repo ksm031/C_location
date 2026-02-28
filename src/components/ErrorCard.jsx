@@ -50,7 +50,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       onClick={onSelect}
       className={`w-full rounded-xl border cursor-pointer transition-all select-none p-3 space-y-1.5 overflow-hidden
         ${selected
-          ? 'border-blue-400 bg-blue-50 shadow-sm'
+          ? 'border-green-400 bg-green-50 shadow-sm'
           : `border-slate-200 ${style.bg} hover:border-slate-300 hover:shadow-sm`
         }`}
     >
