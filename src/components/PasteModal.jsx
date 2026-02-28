@@ -126,8 +126,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
         sys_qty:     r.sys_qty,
         placed_qty:  r.placed_qty,
         tote_qty:    r.tote_qty,
-        locations:   r.locations,
-        created_by:  user.nickname,
+        locations:            r.locations,
+        overage_items:        r.overage_items ?? [],
+        tote_remaining_items: r.tote_remaining_items ?? [],
+        created_by:           user.nickname,
       });
       if (error) {
         if (error.code === '23505') skipped++;
