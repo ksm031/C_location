@@ -6,9 +6,9 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
 
-  // 로케이션 코드 끝 숫자 홀/짝 → 텍스트 색 구분
-  const locTrailNum = parseInt(location_code.match(/(\d+)\D*$/)?.[1] ?? '0', 10);
-  const locColorClass = locTrailNum % 2 !== 0 ? 'text-slate-900' : 'text-slate-500';
+  // 로케이션 코드의 알파벳 뒤 숫자(예: 23A10 → 10) 홀/짝 → 텍스트 색 구분
+  const locTrailNum = parseInt(location_code.match(/[A-Za-z](\d+)/)?.[1] ?? '0', 10);
+  const locColorClass = locTrailNum % 2 !== 0 ? 'text-blue-900' : 'text-red-900';
 
   // 찾아야 할 상품(바코드 목록)과 일치하는 아이템 계산
   const isMatch = (item) =>
@@ -16,6 +16,9 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
   const matchCount = targetBarcodes.length > 0
     ? items.filter(isMatch).reduce((sum, item) => sum + (item.display_qty ?? 1), 0)
     : 0;
+
+  // 이 로케이션의 고유 SKU 수 (같은 바코드 복수 진열 행은 1종으로 집계)
+  const uniqueSkuCount = new Set(items.map(i => i.barcode)).size;
 
   // 이 로케이션의 진열자 목록 (중복 제거)
   const workers = [...new Set(items.map(i => i.display_worker).filter(Boolean))];
@@ -49,7 +52,7 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
             </span>
           )}
           <span className="text-xs text-slate-400">
-            {items.length}종 {total_qty}개
+            {uniqueSkuCount}종 {total_qty}개
           </span>
           {matchCount > 0 && (
             <span className="text-xs font-semibold text-amber-600">
