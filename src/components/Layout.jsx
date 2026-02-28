@@ -155,7 +155,7 @@ export default function Layout({ user, onLogout }) {
         >
           <span className="text-xl">📦</span>
           <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base
-                           group-hover:text-blue-600 transition-colors">PS 업무 보조 도구</span>
+                           group-hover:text-blue-600 transition-colors">진열로케이션정리</span>
         </button>
         <div className="flex items-center gap-3">
           <button
