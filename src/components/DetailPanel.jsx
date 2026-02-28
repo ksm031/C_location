@@ -152,7 +152,10 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
               <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
                 {diffQty}
               </span>
-              <span className="font-mono text-slate-600 flex-shrink-0">{uniqueProducts[0].barcode}</span>
+              <span className="font-mono text-slate-600 flex-shrink-0">
+                {uniqueProducts[0].barcode.slice(0, -3)}
+                <span className="font-bold">{uniqueProducts[0].barcode.slice(-3)}</span>
+              </span>
               {uniqueProducts.length > 1 && (
                 <span className="text-slate-400 flex-shrink-0">外 {uniqueProducts.length - 1}종</span>
               )}
@@ -166,13 +169,16 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
               </button>
             </div>
 
-            {/* 바코드 목록 (펼쳤을 때) */}
+            {/* 바코드 목록 (펼쳤을 때) - max-h 스크롤로 헤더 overflow 방지 */}
             {barcodeExpanded && (
-              <div className="mt-1.5 space-y-1.5 border-t border-slate-100 pt-1.5">
+              <div className="mt-1.5 border-t border-slate-100 pt-1.5 max-h-60 overflow-y-auto space-y-1.5">
                 {uniqueProducts.map(item => (
                   <div key={item.barcode}>
                     <div className="flex items-baseline gap-1.5 text-xs">
-                      <span className="font-mono text-slate-700 font-medium flex-shrink-0">{item.barcode}</span>
+                      <span className="font-mono text-slate-700 font-medium flex-shrink-0">
+                        {item.barcode.slice(0, -3)}
+                        <span className="font-bold">{item.barcode.slice(-3)}</span>
+                      </span>
                       <span className="text-slate-500 truncate">{item.product_name}</span>
                     </div>
                     <div className="overflow-x-auto">
