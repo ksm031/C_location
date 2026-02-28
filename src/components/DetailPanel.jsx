@@ -195,7 +195,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
                 onClick={() => setBarcodeExpanded(v => !v)}
                 className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-auto pl-2"
               >
-                {barcodeExpanded ? '접기 ▲' : '바코드 ▼'}
+                {barcodeExpanded ? '접기 ▲' : '자세히 ▼'}
               </button>
             </div>
 
