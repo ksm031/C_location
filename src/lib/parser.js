@@ -32,6 +32,20 @@ const DISPLAY_ROW = /^(\d+)\t(.+?)\t(\S+)\t(.+?)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}
  */
 const DISPLAY_CONT_ROW = /^(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t([\w-]+)\t(\d+)\s*$/;
 
+/**
+ * 토트에 남은 전산재고 행 패턴
+ * 예: 176984690\tIFNA...\tS0035759030971\t50
+ * 필드: sku_id, product_name, barcode, sys_qty (이후 입력 칸은 가변)
+ */
+const TOTE_REM_ROW = /^(\d+)\t(.+?)\t(\S+)\t(\d+)/;
+
+/**
+ * 오버리지 등록 항목 행 패턴
+ * 예: 176984690\tIFNA...\tS0035759030971\t1\t2026-02-28 18:46:56\t김승민
+ * 필드: sku_id, product_name, barcode, qty, registered_at, registered_by
+ */
+const OVERAGE_ITEM_ROW = /^(\d+)\t(.+?)\t(\S+)\t(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t(.+?)\s*$/;
+
 // ── 내부 파싱 함수 ──────────────────────────────────────────────────────────
 
 /**
@@ -42,11 +56,15 @@ const DISPLAY_CONT_ROW = /^(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t([\w-]+
 function parseSectionLines(lines) {
   let report = null;
 
-  // 진열 내역 섹션 상태 머신
-  let inDisplay = false;
-  let passedExcelBtn = false;
-  const displayRows = [];
-  let lastDisplayRow = null; // 연속 행을 위해 직전 전체 행 보관
+  let inDisplay        = false;
+  let passedExcelBtn   = false;
+  const displayRows    = [];
+  let lastDisplayRow   = null;
+
+  let inToteRemaining      = false;
+  let inOverage            = false;
+  const toteRemainingItems = [];
+  const overageItems       = [];
 
   for (const line of lines) {
     // ① 오류보고 헤더 행 파싱 (아직 못 찾은 경우)
@@ -54,111 +72,116 @@ function parseSectionLines(lines) {
       const m = REPORT_ROW.exec(line);
       if (m) {
         report = {
-          report_id:  m[1],
+          report_id:   m[1],
           reported_at: m[2],
           type:        m[3],
           tote_id:     m[4],
           worker:      m[5],
-          reason:      m[6],   // SHORTAGE / OVERAGE
-          status:      m[7],   // 오류보고 / 문제처리 완료 등
-          issue_item:  m[8],   // 문제 항목 (빈 문자열일 수 있음)
+          reason:      m[6],
+          status:      m[7],
+          issue_item:  m[8],
           tote_qty:    parseInt(m[9]),
           placed_qty:  parseInt(m[10]),
-          sys_qty:     parseInt(m[11]),  // 찾아야 할 수량
+          sys_qty:     parseInt(m[11]),
         };
       }
       continue;
     }
 
-    // ② 진열 내역 섹션 진입 감지
+    // ② 섹션 전환 감지
     if (line === '진열 내역') {
-      inDisplay = true;
-      passedExcelBtn = false;
+      inDisplay = true; passedExcelBtn = false;
+      continue;
+    }
+    if (line === '토트에 남은 전산재고') {
+      inDisplay = false; inToteRemaining = true;
+      continue;
+    }
+    if (line.startsWith('문제 토트에')) {
+      inToteRemaining = false; inOverage = true;
+      continue;
+    }
+    if (line.startsWith('문제처리 이력')) {
+      inOverage = false;
       continue;
     }
 
-    // ③ '엑셀 파일 다운로드' 버튼 텍스트 통과
-    if (inDisplay && !passedExcelBtn && line.startsWith('엑셀 파일 다운로드')) {
-      passedExcelBtn = true;
-      continue;
-    }
-
-    // ④ 진열 내역 섹션 내부 처리
-    if (inDisplay && passedExcelBtn) {
-      // 다음 섹션 도달 시 종료
-      if (
-        line === '토트에 남은 전산재고' ||
-        line.startsWith('문제처리 이력') ||
-        line.startsWith('문제 토트에')
-      ) {
-        inDisplay = false;
+    // ③ 진열 내역 섹션 처리
+    if (inDisplay) {
+      if (!passedExcelBtn) {
+        if (line.startsWith('엑셀 파일 다운로드')) passedExcelBtn = true;
         continue;
       }
+      if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
 
-      // 헤더 행 및 데이터 없음 메시지 스킵
-      if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') {
-        continue;
-      }
-
-      // 진열 내역 전체 행 파싱
       const m = DISPLAY_ROW.exec(line);
       if (m) {
         lastDisplayRow = {
-          sku_id:         m[1],
-          product_name:   m[2],
-          barcode:        m[3],
-          display_worker: m[4],
-          display_at:     m[5],
-          location_code:  m[6],
-          display_qty:    parseInt(m[7]),
+          sku_id: m[1], product_name: m[2], barcode: m[3],
+          display_worker: m[4], display_at: m[5],
+          location_code: m[6], display_qty: parseInt(m[7]),
         };
         displayRows.push(lastDisplayRow);
         continue;
       }
-
-      // 진열 내역 연속 행 파싱 (SKU 생략, 같은 SKU 다른 로케이션)
       const mc = DISPLAY_CONT_ROW.exec(line);
       if (mc && lastDisplayRow) {
         displayRows.push({
-          sku_id:         lastDisplayRow.sku_id,
-          product_name:   lastDisplayRow.product_name,
-          barcode:        lastDisplayRow.barcode,
-          display_worker: mc[1],
-          display_at:     mc[2],
-          location_code:  mc[3],
-          display_qty:    parseInt(mc[4]),
+          sku_id: lastDisplayRow.sku_id, product_name: lastDisplayRow.product_name,
+          barcode: lastDisplayRow.barcode,
+          display_worker: mc[1], display_at: mc[2],
+          location_code: mc[3], display_qty: parseInt(mc[4]),
         });
       }
+      continue;
+    }
+
+    // ④ 토트에 남은 전산재고 섹션 처리
+    if (inToteRemaining) {
+      if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
+      const m = TOTE_REM_ROW.exec(line);
+      if (m) {
+        toteRemainingItems.push({
+          sku_id: m[1], product_name: m[2], barcode: m[3], sys_qty: parseInt(m[4]),
+        });
+      }
+      continue;
+    }
+
+    // ⑤ 오버리지 등록 섹션 처리
+    if (inOverage) {
+      if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
+      const m = OVERAGE_ITEM_ROW.exec(line);
+      if (m) {
+        overageItems.push({
+          sku_id: m[1], product_name: m[2], barcode: m[3],
+          qty: parseInt(m[4]), registered_at: m[5], registered_by: m[6],
+        });
+      }
+      continue;
     }
   }
 
   if (!report) return null;
 
-  // ⑤ 진열 내역을 로케이션별로 그룹핑
+  // ⑥ 진열 내역을 로케이션별로 그룹핑
   const locationMap = {};
   for (const row of displayRows) {
     if (!locationMap[row.location_code]) {
-      locationMap[row.location_code] = {
-        location_code: row.location_code,
-        items: [],
-        total_qty: 0,
-      };
+      locationMap[row.location_code] = { location_code: row.location_code, items: [], total_qty: 0 };
     }
     locationMap[row.location_code].items.push({
-      sku_id:          row.sku_id,
-      product_name:    row.product_name,
-      barcode:         row.barcode,
-      display_worker:  row.display_worker,
-      display_qty:     row.display_qty,
-      display_at:      row.display_at,
+      sku_id: row.sku_id, product_name: row.product_name, barcode: row.barcode,
+      display_worker: row.display_worker, display_qty: row.display_qty, display_at: row.display_at,
     });
     locationMap[row.location_code].total_qty += row.display_qty;
   }
 
-  // 로케이션 코드 오름차순 정렬 (숫자 세그먼트는 수치 비교)
-  report.locations = Object.values(locationMap).sort((a, b) =>
+  report.locations            = Object.values(locationMap).sort((a, b) =>
     a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
   );
+  report.tote_remaining_items = toteRemainingItems;
+  report.overage_items        = overageItems;
 
   return report;
 }

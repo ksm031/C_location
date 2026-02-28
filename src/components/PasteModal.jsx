@@ -59,21 +59,13 @@ function ImageZone({ barcode, productName, dataUrl, onSet, onClear }) {
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onPaste={handlePaste}
-          onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors ${
+          className={`border-2 border-dashed rounded-lg p-4 text-center select-none transition-colors ${
             dragOver
               ? 'border-blue-400 bg-blue-50 text-blue-500'
-              : 'border-slate-200 hover:border-slate-300 text-slate-400'
+              : 'border-slate-200 text-slate-400'
           }`}
         >
-          <p className="text-xs">클릭 · 드래그 · <kbd className="bg-slate-100 px-1 rounded">Ctrl+V</kbd></p>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={e => processFile(e.target.files?.[0])}
-          />
+          <p className="text-xs">드래그 · <kbd className="bg-slate-100 px-1 rounded">Ctrl+V</kbd></p>
         </div>
       )}
     </div>
@@ -89,18 +81,16 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'image'|'done'
   const [images, setImages]         = useState({});      // { barcode: base64 }
 
-  /* 파싱된 보고서 전체에서 고유 상품 목록 */
+  /* 이미지 첨부 대상: 오버리지 등록 항목 + 토트에 전산 남은 항목 */
   const uniqueProducts = (() => {
     if (!parsed?.reports) return [];
     const seen = new Set();
     const list = [];
     for (const r of parsed.reports) {
-      for (const loc of r.locations ?? []) {
-        for (const item of loc.items ?? []) {
-          if (!seen.has(item.barcode)) {
-            seen.add(item.barcode);
-            list.push({ barcode: item.barcode, product_name: item.product_name });
-          }
+      for (const item of [...(r.overage_items ?? []), ...(r.tote_remaining_items ?? [])]) {
+        if (!seen.has(item.barcode)) {
+          seen.add(item.barcode);
+          list.push({ barcode: item.barcode, product_name: item.product_name });
         }
       }
     }
