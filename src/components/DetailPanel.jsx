@@ -47,12 +47,12 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
     setBarcodeExpanded(false);
   }, [analysis?.id]);
 
-  // 아코디언 열릴 때 이미지 fetch
+  // 아코디언 열릴 때 이미지 fetch (저장 대상과 동일한 overage/tote_remaining 바코드 기준)
   useEffect(() => {
     if (!barcodeExpanded || !analysis) return;
+    const issueAll = [...(analysis.overage_items ?? []), ...(analysis.tote_remaining_items ?? [])];
     const seen = new Set();
-    const barcodes = (analysis.locations ?? [])
-      .flatMap(l => l.items ?? [])
+    const barcodes = issueAll
       .filter(item => {
         if (seen.has(item.barcode)) return false;
         seen.add(item.barcode);
