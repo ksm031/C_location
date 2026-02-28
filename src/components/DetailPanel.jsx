@@ -83,16 +83,18 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
   const pct  = locs.length > 0 ? Math.round((done / locs.length) * 100) : 0;
   const completed = locs.length > 0 && done === locs.length;
 
-  const allItems = locs.flatMap(l => l.items ?? []);
+  // 헤더 상품 목록: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
+  const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
   const seenBarcodes = new Set();
-  const uniqueProducts = allItems.filter(item => {
+  const uniqueProducts = issueItems.filter(item => {
     if (seenBarcodes.has(item.barcode)) return false;
     seenBarcodes.add(item.barcode);
     return true;
   });
   const targetBarcodes = uniqueProducts.map(p => p.barcode);
   const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
-  const diffQty = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${a.placed_qty}개`;
+  const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
+  const diffQty = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${overageQty}개`;
 
   // 정렬
   const sortedLocs = useMemo(() => {

@@ -29,15 +29,16 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
 
-  // 대표 상품 (전체 아이템 중 첫 번째) + 유니크 바코드 수
-  const allItems = locs.flatMap(l => l.items ?? []);
-  const firstItem = allItems.find(Boolean) ?? null;
-  const uniqueBarcodeCount = new Set(allItems.map(i => i.barcode)).size;
+  // 대표 상품: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
+  const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
+  const firstItem = issueItems.find(Boolean) ?? null;
+  const uniqueBarcodeCount = new Set(issueItems.map(i => i.barcode)).size;
 
   // 누락/초과 수량 텍스트
+  const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
   const diffLabel = a.reason === 'SHORTAGE'
     ? `누락 ${a.sys_qty}개`
-    : `초과 ${a.placed_qty}개`;
+    : `초과 ${overageQty}개`;
 
   // 대표 로케이션 (축약 + 중복 제거, 최대 3개)
   const locCodes  = [...new Set(locs.map(l => shortLoc(l.location_code)))];
