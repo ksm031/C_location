@@ -17,6 +17,16 @@ export default function Layout({ user, onLogout }) {
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
   const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
+  const [deletedNotice, setDeletedNotice] = useState(false); // 타 기기 삭제 알림
+
+  // ── 타 기기 삭제 감지: analyses 갱신 시 selected가 목록에 없으면 자동 해제 ──
+  useEffect(() => {
+    if (loadingInit || !selected) return;
+    if (!analyses.some(a => a.id === selected)) {
+      setSelected(null);
+      setDeletedNotice(true);
+    }
+  }, [analyses, loadingInit, selected]);
 
   // ── 분석 목록 로드 ─────────────────────────────────────────────
   const loadAnalyses = useCallback(async () => {
@@ -125,6 +135,7 @@ export default function Layout({ user, onLogout }) {
 
   // ── 체크 결과 저장/업데이트 ───────────────────────────────────
   const handleCheck = async (analysisId, locationCode, result) => {
+    if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
     // 낙관적 업데이트
     setChecks(prev => ({
       ...prev,
@@ -142,6 +153,7 @@ export default function Layout({ user, onLogout }) {
 
   // ── 체크 취소 ─────────────────────────────────────────────────
   const handleUncheck = async (analysisId, locationCode) => {
+    if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
     setChecks(prev => {
       const copy = { ...prev };
       if (copy[analysisId]) {
@@ -159,6 +171,7 @@ export default function Layout({ user, onLogout }) {
 
   // ── 관심 로케이션 토글 ────────────────────────────────────────
   const handleStarToggle = async (analysisId, locationCode) => {
+    if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
     const isStarred = !!stars[analysisId]?.[locationCode];
     // 낙관적 업데이트
     setStars(prev => {
@@ -263,7 +276,7 @@ export default function Layout({ user, onLogout }) {
             analyses={analyses}
             checks={checks}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={id => { setSelected(id); setDeletedNotice(false); }}
             onDelete={handleDelete}
             onDeleteAll={handleDeleteAll}
             loading={loadingInit}
@@ -272,7 +285,19 @@ export default function Layout({ user, onLogout }) {
           />
         </div>
         {/* 모바일: 선택 있을 때만 표시 / 데스크탑: 항상 표시 */}
-        <div className={`flex-1 min-w-0 flex flex-col ${selected == null ? 'hidden md:flex' : ''}`}>
+        <div className={`flex-1 min-w-0 flex flex-col relative ${selected == null ? 'hidden md:flex' : ''}`}>
+          {/* 타 기기 삭제 알림 토스트 */}
+          {deletedNotice && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2
+                            bg-amber-50 border border-amber-300 text-amber-800 text-xs
+                            px-4 py-2.5 rounded-full shadow-md whitespace-nowrap">
+              <span>⚠️ 다른 기기에서 해당 오류보고가 삭제되었습니다.</span>
+              <button
+                onClick={() => setDeletedNotice(false)}
+                className="ml-1 text-amber-500 hover:text-amber-700 font-bold"
+              >✕</button>
+            </div>
+          )}
           <ErrorBoundary key={selected}>
             <DetailPanel
               key={selected}
