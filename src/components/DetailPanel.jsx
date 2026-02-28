@@ -1,26 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import JsBarcode from 'jsbarcode';
+import { useState, useMemo, useEffect } from 'react';
 import LocationAccordion from './LocationAccordion';
-import { getImgs } from '../lib/imageUtils';
-
-/** Code 128 바코드 SVG 컴포넌트 */
-function Barcode128({ value }) {
-  const svgRef = useRef(null);
-  useEffect(() => {
-    if (!svgRef.current || !value) return;
-    try {
-      JsBarcode(svgRef.current, value, {
-        format: 'CODE128',
-        width: 1.2,
-        height: 32,
-        margin: 4,
-        displayValue: false,
-      });
-    } catch (_) { /* 잘못된 바코드 값 무시 */ }
-  }, [value]);
-  if (!value) return null;
-  return <svg ref={svgRef} className="max-w-full" />;
-}
+import SystemItemsPanel from './SystemItemsPanel';
 
 const REASON_STYLE = {
   SHORTAGE: { badge: 'bg-blue-100 text-blue-700' },
@@ -38,30 +18,12 @@ function cardDate(dateStr) {
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, search }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
   const [filterBy, setFilter]     = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
-  const [barcodeExpanded, setBarcodeExpanded] = useState(false);
-  const [productImages, setProductImages]     = useState({}); // { barcode: dataUrl }
+  const [showSysItems, setShowSysItems] = useState(false);
 
-  // analysis 바뀌면 이미지 캐시 초기화
+  // analysis 바뀌면 패널 닫기
   useEffect(() => {
-    setProductImages({});
-    setBarcodeExpanded(false);
+    setShowSysItems(false);
   }, [analysis?.id]);
-
-  // 아코디언 열릴 때 이미지 fetch (저장 대상과 동일한 overage/tote_remaining 바코드 기준)
-  useEffect(() => {
-    if (!barcodeExpanded || !analysis) return;
-    const issueAll = [...(analysis.overage_items ?? []), ...(analysis.tote_remaining_items ?? [])];
-    const seen = new Set();
-    const barcodes = issueAll
-      .filter(item => {
-        if (seen.has(item.barcode)) return false;
-        seen.add(item.barcode);
-        return true;
-      })
-      .map(item => item.barcode);
-    if (!barcodes.length) return;
-    getImgs(barcodes).then(setProductImages);
-  }, [barcodeExpanded, analysis?.id]);
 
   if (!analysis) {
     return (
@@ -191,41 +153,15 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
                 <span className="text-slate-400 flex-shrink-0">外 {uniqueProducts.length - 1}종</span>
               )}
               <span className="text-slate-400 truncate">{uniqueProducts[0].product_name}</span>
-              {/* 펼치기/접기 토글 */}
+              {/* 자세히 → 전산 품목 체크 패널 */}
               <button
-                onClick={() => setBarcodeExpanded(v => !v)}
+                onClick={() => setShowSysItems(true)}
                 className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-auto pl-2"
               >
-                {barcodeExpanded ? '접기 ▲' : '자세히 ▼'}
+                자세히 ▼
               </button>
             </div>
 
-            {/* 바코드 목록 (펼쳤을 때) - max-h 스크롤로 헤더 overflow 방지 */}
-            {barcodeExpanded && (
-              <div className="mt-1.5 border-t border-slate-100 pt-1.5 max-h-60 overflow-y-auto space-y-1.5">
-                {uniqueProducts.map(item => (
-                  <div key={item.barcode}>
-                    <div className="flex items-baseline gap-1.5 text-xs">
-                      <span className="font-mono text-slate-700 font-medium flex-shrink-0">
-                        {item.barcode.slice(0, -3)}
-                        <span className="font-bold">{item.barcode.slice(-3)}</span>
-                      </span>
-                      <span className="text-slate-500 truncate">{item.product_name}</span>
-                    </div>
-                    {productImages[item.barcode] && (
-                      <img
-                        src={productImages[item.barcode]}
-                        alt=""
-                        className="mt-1 h-28 rounded-lg border border-slate-200 object-cover"
-                      />
-                    )}
-                    <div className="overflow-x-auto">
-                      <Barcode128 value={item.barcode} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
@@ -276,6 +212,14 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           ))}
         </div>
       </div>
+
+      {/* 전산 품목 체크 패널 */}
+      {showSysItems && (
+        <SystemItemsPanel
+          analyses={[analysis]}
+          onClose={() => setShowSysItems(false)}
+        />
+      )}
 
       {/* 로케이션 목록 */}
       <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-2">

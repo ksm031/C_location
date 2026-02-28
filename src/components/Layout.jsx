@@ -5,15 +5,13 @@ import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
 import MemoModal from './MemoModal';
 import ErrorBoundary from './ErrorBoundary';
-import SystemItemsPanel from './SystemItemsPanel';
 
 export default function Layout({ user, onLogout }) {
   const [analyses, setAnalyses]     = useState([]);   // DB에서 불러온 분석 목록
   const [checks, setChecks]         = useState({});   // { analysis_id: { location_code: {result, checked_by} } }
   const [selected, setSelected]     = useState(null); // 선택된 analysis_id
-  const [showPaste, setShowPaste]       = useState(false);
-  const [showMemo, setShowMemo]         = useState(false);
-  const [showSysItems, setShowSysItems] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
+  const [showMemo, setShowMemo]   = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
   const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
@@ -105,6 +103,8 @@ export default function Layout({ user, onLogout }) {
           .maybeSingle();
 
         if (setting?.value !== todayKey) {
+          // starred_locations 먼저 삭제 (CASCADE 미보장 대비)
+          await sb.from('starred_locations').delete().gte('created_at', '1970-01-01');
           // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
           await sb.from('analyses').delete().gte('created_at', '1970-01-01');
           await sb.from('app_settings')
@@ -226,29 +226,6 @@ export default function Layout({ user, onLogout }) {
                            group-hover:text-blue-600 transition-colors">진열로케이션정리</span>
         </button>
         <div className="flex items-center gap-3">
-          {/* 전산 품목 체크 버튼 */}
-          <button
-            onClick={() => setShowSysItems(true)}
-            className="relative px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium
-                       rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-            title="전산 품목 체크리스트"
-          >
-            <span>🔍</span>
-            <span className="hidden sm:inline">전산조회</span>
-            {/* 전산 품목 수 뱃지 */}
-            {(() => {
-              const cnt = [...new Map(
-                analyses.flatMap(a => (a.tote_remaining_items || []))
-                  .filter(i => i.barcode)
-                  .map(i => [i.barcode, i])
-              ).values()].length;
-              return cnt > 0 ? (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {cnt}
-                </span>
-              ) : null;
-            })()}
-          </button>
           <button
             onClick={() => setShowPaste(true)}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium
@@ -332,13 +309,6 @@ export default function Layout({ user, onLogout }) {
         />
       )}
 
-      {/* ── 전산 품목 체크 패널 ── */}
-      {showSysItems && (
-        <SystemItemsPanel
-          analyses={analyses}
-          onClose={() => setShowSysItems(false)}
-        />
-      )}
     </div>
   );
 }
