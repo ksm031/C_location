@@ -124,7 +124,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, user
           )}
           {notFoundCount > 0 && foundCount === 0 && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">
-              없음 {notFoundCount}
+              없음
             </span>
           )}
         </div>
