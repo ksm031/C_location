@@ -78,7 +78,7 @@ function parseSectionLines(lines) {
     }
 
     // ③ '엑셀 파일 다운로드' 버튼 텍스트 통과
-    if (inDisplay && !passedExcelBtn && line === '엑셀 파일 다운로드') {
+    if (inDisplay && !passedExcelBtn && line.startsWith('엑셀 파일 다운로드')) {
       passedExcelBtn = true;
       continue;
     }
