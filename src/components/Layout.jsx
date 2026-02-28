@@ -3,6 +3,7 @@ import { sb } from '../lib/supabase';
 import Sidebar from './Sidebar';
 import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
+import MemoModal from './MemoModal';
 import ErrorBoundary from './ErrorBoundary';
 
 export default function Layout({ user, onLogout }) {
@@ -10,6 +11,7 @@ export default function Layout({ user, onLogout }) {
   const [checks, setChecks]         = useState({});   // { analysis_id: { location_code: {result, checked_by} } }
   const [selected, setSelected]     = useState(null); // 선택된 analysis_id
   const [showPaste, setShowPaste]   = useState(false);
+  const [showMemo, setShowMemo]     = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
 
@@ -146,10 +148,15 @@ export default function Layout({ user, onLogout }) {
     <div className="h-screen flex flex-col bg-slate-100">
       {/* ── 상단 헤더 ── */}
       <header className="flex items-center justify-between px-4 md:px-5 py-3 bg-white/95 backdrop-blur border-b border-slate-200 flex-shrink-0 shadow-sm">
-        <div className="flex items-center gap-2">
+        <button
+          className="flex items-center gap-2 group"
+          onClick={() => setShowMemo(true)}
+          title="공유 메모장 열기"
+        >
           <span className="text-xl">📦</span>
-          <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base">PS 업무 보조 도구</span>
-        </div>
+          <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base
+                           group-hover:text-blue-600 transition-colors">PS 업무 보조 도구</span>
+        </button>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowPaste(true)}
@@ -209,6 +216,14 @@ export default function Layout({ user, onLogout }) {
           user={user}
           onClose={() => setShowPaste(false)}
           onSaved={() => { setShowPaste(false); loadAnalyses(); }}
+        />
+      )}
+
+      {/* ── 공유 메모 모달 ── */}
+      {showMemo && (
+        <MemoModal
+          user={user}
+          onClose={() => setShowMemo(false)}
         />
       )}
     </div>
