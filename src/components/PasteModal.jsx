@@ -81,18 +81,16 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'image'|'done'
   const [images, setImages]         = useState({});      // { barcode: base64 }
 
-  /* 파싱된 보고서 전체에서 고유 상품 목록 */
+  /* 이미지 첨부 대상: 오버리지 등록 항목 + 토트에 전산 남은 항목 */
   const uniqueProducts = (() => {
     if (!parsed?.reports) return [];
     const seen = new Set();
     const list = [];
     for (const r of parsed.reports) {
-      for (const loc of r.locations ?? []) {
-        for (const item of loc.items ?? []) {
-          if (!seen.has(item.barcode)) {
-            seen.add(item.barcode);
-            list.push({ barcode: item.barcode, product_name: item.product_name });
-          }
+      for (const item of [...(r.overage_items ?? []), ...(r.tote_remaining_items ?? [])]) {
+        if (!seen.has(item.barcode)) {
+          seen.add(item.barcode);
+          list.push({ barcode: item.barcode, product_name: item.product_name });
         }
       }
     }
