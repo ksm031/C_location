@@ -30,7 +30,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
       return [...filtered].sort((a, b) => {
         const la = (a.locations?.[0]?.location_code ?? '');
         const lb = (b.locations?.[0]?.location_code ?? '');
-        return la.localeCompare(lb);
+        return la.localeCompare(lb, undefined, { numeric: true });
       });
     }
     // reported_at 내림차순 (기본)
@@ -40,7 +40,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
   }, [filtered, sort]);
 
   return (
-    <aside className="w-full md:w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col shadow-sm">
+    <aside className="w-full md:w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col shadow-sm h-full">
       {/* 검색 + 정렬 */}
       <div className="p-3 border-b border-slate-100 space-y-2">
         <input
