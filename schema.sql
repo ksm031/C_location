@@ -65,11 +65,26 @@ CREATE POLICY "anon_all_app_settings"
   ON app_settings FOR ALL TO anon
   USING (true) WITH CHECK (true);
 
+-- 4. 공유 메모 (타이틀 클릭으로 접근하는 비밀 메모장)
+CREATE TABLE IF NOT EXISTS memos (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  content    TEXT        NOT NULL,
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE memos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_memos" ON memos;
+CREATE POLICY "anon_all_memos"
+  ON memos FOR ALL TO anon
+  USING (true) WITH CHECK (true);
+
 -- ================================================================
 -- Realtime 활성화 (실시간 동기화)
 -- ================================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE analyses;
 ALTER PUBLICATION supabase_realtime ADD TABLE location_checks;
+ALTER PUBLICATION supabase_realtime ADD TABLE memos;
 
 -- ================================================================
 -- locations JSONB 구조 예시 (참고용)
