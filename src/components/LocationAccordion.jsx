@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDate } from '../lib/parser';
 
-export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcodes = [] }) {
+export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcodes = [], starred = false, onStarToggle }) {
   const [open, setOpen] = useState(false);
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
@@ -34,14 +34,25 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
         className="px-3 pt-3 pb-2 cursor-pointer select-none"
         onClick={() => setOpen(o => !o)}
       >
-        {/* 1행: 펼침 아이콘 + 로케이션 코드 (절대 생략 없음) */}
+        {/* 1행: 펼침 아이콘 + 로케이션 코드 + 별 버튼 */}
         <div className="flex items-center gap-2">
           <span className={`text-slate-400 text-xs transition-transform flex-shrink-0 ${open ? 'rotate-90' : ''}`}>
             ▶
           </span>
-          <span className={`font-mono font-semibold text-sm break-all ${locColorClass}`}>
+          <span className={`font-mono font-semibold text-sm break-all flex-1 ${locColorClass}`}>
             {location_code}
           </span>
+          {onStarToggle && (
+            <button
+              onClick={e => { e.stopPropagation(); onStarToggle(analysisId, location_code); }}
+              className={`flex-shrink-0 text-xl leading-none transition-colors ${
+                starred ? 'text-amber-400 hover:text-amber-500' : 'text-slate-200 hover:text-amber-300'
+              }`}
+              title={starred ? '관심 해제' : '관심 로케이션으로 표시'}
+            >
+              {starred ? '★' : '☆'}
+            </button>
+          )}
         </div>
 
         {/* 2행: 진열자 · 종수/수량 · 일치배지 */}

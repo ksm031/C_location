@@ -5,15 +5,28 @@ import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
 import MemoModal from './MemoModal';
 import ErrorBoundary from './ErrorBoundary';
+import SystemItemsPanel from './SystemItemsPanel';
 
 export default function Layout({ user, onLogout }) {
   const [analyses, setAnalyses]     = useState([]);   // DB에서 불러온 분석 목록
   const [checks, setChecks]         = useState({});   // { analysis_id: { location_code: {result, checked_by} } }
   const [selected, setSelected]     = useState(null); // 선택된 analysis_id
-  const [showPaste, setShowPaste]   = useState(false);
-  const [showMemo, setShowMemo]     = useState(false);
+  const [showPaste, setShowPaste]       = useState(false);
+  const [showMemo, setShowMemo]         = useState(false);
+  const [showSysItems, setShowSysItems] = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
+  const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
+  const [deletedNotice, setDeletedNotice] = useState(false); // 타 기기 삭제 알림
+
+  // ── 타 기기 삭제 감지: analyses 갱신 시 selected가 목록에 없으면 자동 해제 ──
+  useEffect(() => {
+    if (loadingInit || !selected) return;
+    if (!analyses.some(a => a.id === selected)) {
+      setSelected(null);
+      setDeletedNotice(true);
+    }
+  }, [analyses, loadingInit, selected]);
 
   // ── 분석 목록 로드 ─────────────────────────────────────────────
   const loadAnalyses = useCallback(async () => {
@@ -23,6 +36,29 @@ export default function Layout({ user, onLogout }) {
       .eq('created_by', user.nickname)
       .order('reported_at', { ascending: false });
     if (!error && data) setAnalyses(data);
+  }, [user.nickname]);
+
+  // ── 관심 로케이션 로드 ────────────────────────────────────────
+  const loadStars = useCallback(async () => {
+    const { data: ids } = await sb
+      .from('analyses')
+      .select('id')
+      .eq('created_by', user.nickname);
+    if (!ids?.length) { setStars({}); return; }
+
+    const { data, error } = await sb
+      .from('starred_locations')
+      .select('analysis_id, location_code')
+      .in('analysis_id', ids.map(r => r.id))
+      .eq('starred_by', user.nickname);
+    if (!error && data) {
+      const map = {};
+      for (const row of data) {
+        if (!map[row.analysis_id]) map[row.analysis_id] = {};
+        map[row.analysis_id][row.location_code] = true;
+      }
+      setStars(map);
+    }
   }, [user.nickname]);
 
   // ── 체크 결과 로드 ─────────────────────────────────────────────
@@ -76,7 +112,7 @@ export default function Layout({ user, onLogout }) {
         }
       }
 
-      await Promise.all([loadAnalyses(), loadChecks()]);
+      await Promise.all([loadAnalyses(), loadChecks(), loadStars()]);
       setLoadingInit(false);
     };
 
@@ -90,11 +126,16 @@ export default function Layout({ user, onLogout }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'location_checks' }, loadChecks)
       .subscribe();
 
-    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); };
+    const ch3 = sb.channel('stars-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, loadStars)
+      .subscribe();
+
+    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); };
   }, [loadAnalyses, loadChecks]);
 
   // ── 체크 결과 저장/업데이트 ───────────────────────────────────
   const handleCheck = async (analysisId, locationCode, result) => {
+    if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
     // 낙관적 업데이트
     setChecks(prev => ({
       ...prev,
@@ -112,6 +153,7 @@ export default function Layout({ user, onLogout }) {
 
   // ── 체크 취소 ─────────────────────────────────────────────────
   const handleUncheck = async (analysisId, locationCode) => {
+    if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
     setChecks(prev => {
       const copy = { ...prev };
       if (copy[analysisId]) {
@@ -125,6 +167,31 @@ export default function Layout({ user, onLogout }) {
       .delete()
       .eq('analysis_id', analysisId)
       .eq('location_code', locationCode);
+  };
+
+  // ── 관심 로케이션 토글 ────────────────────────────────────────
+  const handleStarToggle = async (analysisId, locationCode) => {
+    if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
+    const isStarred = !!stars[analysisId]?.[locationCode];
+    // 낙관적 업데이트
+    setStars(prev => {
+      const aStars = { ...prev[analysisId] };
+      if (isStarred) delete aStars[locationCode];
+      else aStars[locationCode] = true;
+      return { ...prev, [analysisId]: aStars };
+    });
+    if (isStarred) {
+      await sb.from('starred_locations')
+        .delete()
+        .eq('analysis_id', analysisId)
+        .eq('location_code', locationCode)
+        .eq('starred_by', user.nickname);
+    } else {
+      await sb.from('starred_locations').upsert(
+        { analysis_id: analysisId, location_code: locationCode, starred_by: user.nickname },
+        { onConflict: 'analysis_id,location_code,starred_by' }
+      );
+    }
   };
 
   // ── 삭제 ──────────────────────────────────────────────────────
@@ -143,6 +210,7 @@ export default function Layout({ user, onLogout }) {
 
   const selectedAnalysis = analyses.find(a => a.id === selected) ?? null;
   const selectedChecks   = selected ? (checks[selected] ?? {}) : {};
+  const selectedStars    = selected ? (stars[selected]  ?? {}) : {};
 
   return (
     <div className="h-screen flex flex-col bg-slate-100">
@@ -158,6 +226,29 @@ export default function Layout({ user, onLogout }) {
                            group-hover:text-blue-600 transition-colors">진열로케이션정리</span>
         </button>
         <div className="flex items-center gap-3">
+          {/* 전산 품목 체크 버튼 */}
+          <button
+            onClick={() => setShowSysItems(true)}
+            className="relative px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium
+                       rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+            title="전산 품목 체크리스트"
+          >
+            <span>🔍</span>
+            <span className="hidden sm:inline">전산조회</span>
+            {/* 전산 품목 수 뱃지 */}
+            {(() => {
+              const cnt = [...new Map(
+                analyses.flatMap(a => (a.tote_remaining_items || []))
+                  .filter(i => i.barcode)
+                  .map(i => [i.barcode, i])
+              ).values()].length;
+              return cnt > 0 ? (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {cnt}
+                </span>
+              ) : null;
+            })()}
+          </button>
           <button
             onClick={() => setShowPaste(true)}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium
@@ -185,7 +276,7 @@ export default function Layout({ user, onLogout }) {
             analyses={analyses}
             checks={checks}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={id => { setSelected(id); setDeletedNotice(false); }}
             onDelete={handleDelete}
             onDeleteAll={handleDeleteAll}
             loading={loadingInit}
@@ -194,7 +285,19 @@ export default function Layout({ user, onLogout }) {
           />
         </div>
         {/* 모바일: 선택 있을 때만 표시 / 데스크탑: 항상 표시 */}
-        <div className={`flex-1 min-w-0 flex flex-col ${selected == null ? 'hidden md:flex' : ''}`}>
+        <div className={`flex-1 min-w-0 flex flex-col relative ${selected == null ? 'hidden md:flex' : ''}`}>
+          {/* 타 기기 삭제 알림 토스트 */}
+          {deletedNotice && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2
+                            bg-amber-50 border border-amber-300 text-amber-800 text-xs
+                            px-4 py-2.5 rounded-full shadow-md whitespace-nowrap">
+              <span>⚠️ 다른 기기에서 해당 오류보고가 삭제되었습니다.</span>
+              <button
+                onClick={() => setDeletedNotice(false)}
+                className="ml-1 text-amber-500 hover:text-amber-700 font-bold"
+              >✕</button>
+            </div>
+          )}
           <ErrorBoundary key={selected}>
             <DetailPanel
               key={selected}
@@ -202,6 +305,8 @@ export default function Layout({ user, onLogout }) {
               checks={selectedChecks}
               onCheck={handleCheck}
               onUncheck={handleUncheck}
+              stars={selectedStars}
+              onStarToggle={handleStarToggle}
               user={user}
               onBack={() => setSelected(null)}
               search={search}
@@ -224,6 +329,14 @@ export default function Layout({ user, onLogout }) {
         <MemoModal
           user={user}
           onClose={() => setShowMemo(false)}
+        />
+      )}
+
+      {/* ── 전산 품목 체크 패널 ── */}
+      {showSysItems && (
+        <SystemItemsPanel
+          analyses={analyses}
+          onClose={() => setShowSysItems(false)}
         />
       )}
     </div>
