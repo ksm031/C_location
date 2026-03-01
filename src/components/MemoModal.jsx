@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { sb } from '../lib/supabase';
 
 export default function MemoModal({ user, onClose }) {
-  const [memos, setMemos]     = useState([]);
-  const [text, setText]       = useState('');
-  const [saving, setSaving]   = useState(false);
-  const [loading, setLoading] = useState(true);
-  const textareaRef           = useRef(null);
+  const [memos, setMemos]       = useState([]);
+  const [text, setText]         = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [loading, setLoading]   = useState(true);
+  const [expanded, setExpanded] = useState({}); // { id: true }
+  const [copied, setCopied]     = useState(false);
+  const textareaRef             = useRef(null);
 
   // 메모 목록 불러오기
   const loadMemos = async () => {
@@ -52,14 +54,16 @@ export default function MemoModal({ user, onClose }) {
     await sb.from('memos').delete().eq('id', id);
   };
 
-  const handleDownload = () => {
-    if (!memos.length) return;
-    const body = memos
+  const buildBody = () =>
+    memos
       .slice()
-      .reverse() // 오래된 순서로
+      .reverse()
       .map((m) => `[${formatDate(m.created_at)} · ${m.created_by}]\n${m.content}`)
       .join('\n\n---\n\n');
-    const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+
+  const handleDownload = () => {
+    if (!memos.length) return;
+    const blob = new Blob([buildBody()], { type: 'text/plain;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     const now  = new Date();
@@ -70,6 +74,16 @@ export default function MemoModal({ user, onClose }) {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleCopyAll = async () => {
+    if (!memos.length) return;
+    await navigator.clipboard.writeText(buildBody());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const toggleExpand = (id) =>
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
   const formatDate = (iso) => {
     const d = new Date(iso);
@@ -92,6 +106,15 @@ export default function MemoModal({ user, onClose }) {
             <span>📝</span> 공유 메모장
           </span>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyAll}
+              disabled={!memos.length}
+              className="px-3 py-1 text-xs border rounded-lg transition-colors disabled:opacity-30
+                         text-slate-500 hover:text-slate-700 border-slate-200 hover:border-slate-400"
+              title="전체 메모 클립보드 복사"
+            >
+              {copied ? '✓ 복사됨' : '복사'}
+            </button>
             <button
               onClick={handleDownload}
               disabled={!memos.length}
@@ -145,26 +168,43 @@ export default function MemoModal({ user, onClose }) {
           {!loading && memos.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-6">저장된 메모가 없습니다.</p>
           )}
-          {memos.map((m) => (
-            <div
-              key={m.id}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 group"
-            >
-              <p className="text-sm text-slate-800 whitespace-pre-wrap break-words">{m.content}</p>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-slate-400">
-                  {m.created_by} · {formatDate(m.created_at)}
-                </span>
-                <button
-                  onClick={() => handleDelete(m.id)}
-                  className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100
-                             transition-all"
-                >
-                  삭제
-                </button>
+          {memos.map((m) => {
+            const isExpanded = !!expanded[m.id];
+            const lines = m.content.split('\n');
+            const isLong = lines.length > 3 || m.content.length > 120;
+            return (
+              <div
+                key={m.id}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 group"
+              >
+                <p className={`text-sm text-slate-800 whitespace-pre-wrap break-words ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}>
+                  {m.content}
+                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-slate-400">
+                    {m.created_by} · {formatDate(m.created_at)}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {isLong && (
+                      <button
+                        onClick={() => toggleExpand(m.id)}
+                        className="text-xs text-blue-400 hover:text-blue-600 transition-colors"
+                      >
+                        {isExpanded ? '접기 ▲' : '펼치기 ▼'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(m.id)}
+                      className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100
+                                 transition-all"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
