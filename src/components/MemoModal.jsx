@@ -7,7 +7,7 @@ export default function MemoModal({ user, onClose }) {
   const [saving, setSaving]     = useState(false);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState({}); // { id: true }
-  const [copied, setCopied]     = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
   const textareaRef             = useRef(null);
 
   // 메모 목록 불러오기
@@ -54,32 +54,23 @@ export default function MemoModal({ user, onClose }) {
     await sb.from('memos').delete().eq('id', id);
   };
 
-  const buildBody = () =>
-    memos
-      .slice()
-      .reverse()
-      .map((m) => `[${formatDate(m.created_at)} · ${m.created_by}]\n${m.content}`)
-      .join('\n\n---\n\n');
-
-  const handleDownload = () => {
-    if (!memos.length) return;
-    const blob = new Blob([buildBody()], { type: 'text/plain;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const now  = new Date();
-    const pad  = (n) => String(n).padStart(2, '0');
-    const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-    a.href     = url;
-    a.download = `메모_${stamp}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleCopy = async (m) => {
+    await navigator.clipboard.writeText(m.content);
+    setCopiedId(m.id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleCopyAll = async () => {
-    if (!memos.length) return;
-    await navigator.clipboard.writeText(buildBody());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleDownload = (m) => {
+    const blob  = new Blob([m.content], { type: 'text/plain;charset=utf-8' });
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    const now   = new Date();
+    const pad   = (n) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    a.href      = url;
+    a.download  = `메모_${stamp}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const toggleExpand = (id) =>
@@ -105,32 +96,12 @@ export default function MemoModal({ user, onClose }) {
           <span className="font-bold text-slate-800 flex items-center gap-2">
             <span>📝</span> 공유 메모장
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyAll}
-              disabled={!memos.length}
-              className="px-3 py-1 text-xs border rounded-lg transition-colors disabled:opacity-30
-                         text-slate-500 hover:text-slate-700 border-slate-200 hover:border-slate-400"
-              title="전체 메모 클립보드 복사"
-            >
-              {copied ? '✓ 복사됨' : '복사'}
-            </button>
-            <button
-              onClick={handleDownload}
-              disabled={!memos.length}
-              className="px-3 py-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200
-                         hover:border-slate-400 rounded-lg transition-colors disabled:opacity-30"
-              title="전체 메모 txt로 저장"
-            >
-              ↓ txt
-            </button>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors"
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors"
+          >
+            ✕
+          </button>
         </div>
 
         {/* 입력 영역 */}
@@ -193,6 +164,20 @@ export default function MemoModal({ user, onClose }) {
                         {isExpanded ? '접기 ▲' : '펼치기 ▼'}
                       </button>
                     )}
+                    <button
+                      onClick={() => handleCopy(m)}
+                      className="text-xs text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100
+                                 transition-all"
+                    >
+                      {copiedId === m.id ? '✓ 복사됨' : '복사'}
+                    </button>
+                    <button
+                      onClick={() => handleDownload(m)}
+                      className="text-xs text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100
+                                 transition-all"
+                    >
+                      ↓ txt
+                    </button>
                     <button
                       onClick={() => handleDelete(m.id)}
                       className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100
