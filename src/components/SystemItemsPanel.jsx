@@ -28,7 +28,8 @@ export default function SystemItemsPanel({ analyses, onClose }) {
     try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); }
     catch { return {}; }
   });
-  const [images, setImages] = useState({});
+  const [images, setImages]     = useState({});
+  const [zoomImg, setZoomImg]   = useState(null);
 
   // 전체 analyses 에서 tote_remaining_items 집계, 바코드 기준 중복 제거
   const items = (() => {
@@ -67,6 +68,15 @@ export default function SystemItemsPanel({ analyses, onClose }) {
       className="fixed inset-0 z-50 flex"
       onClick={onClose}
     >
+      {/* 이미지 확대 팝업 */}
+      {zoomImg && (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/80"
+          onClick={(e) => { e.stopPropagation(); setZoomImg(null); }}
+        >
+          <img src={zoomImg} alt="" className="max-w-[90vw] max-h-[80vh] object-contain rounded-xl cursor-zoom-out" />
+        </div>
+      )}
       {/* 배경 딤 */}
       <div className="absolute inset-0 bg-black/50" />
 
@@ -119,7 +129,15 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                   }`}
               >
                 {/* 상품 이미지 */}
-                <div className="w-[72px] h-[72px] flex-shrink-0 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center">
+                <div
+                  className="w-[72px] h-[72px] flex-shrink-0 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center cursor-zoom-in"
+                  onClick={(e) => {
+                    if (!images[item.barcode]) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setZoomImg(images[item.barcode]);
+                  }}
+                >
                   {images[item.barcode]
                     ? <img src={images[item.barcode]} alt="" className="w-full h-full object-cover" />
                     : <span className="text-2xl opacity-40">📷</span>
@@ -132,7 +150,8 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                     {item.product_name}
                   </div>
                   <div className="text-[11px] text-slate-400 font-mono mb-1">
-                    {item.barcode}
+                    {item.barcode.slice(0, -3)}
+                    <span className="font-bold">{item.barcode.slice(-3)}</span>
                   </div>
                   {item.sys_qty != null && (
                     <div className="text-[11px] text-blue-500 font-medium mb-1">
