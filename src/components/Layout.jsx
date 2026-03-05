@@ -107,6 +107,8 @@ export default function Layout({ user, onLogout }) {
           await sb.from('starred_locations').delete().not('analysis_id', 'is', null);
           // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
           await sb.from('analyses').delete().gte('created_at', '1970-01-01');
+          // 상품 이미지 삭제
+          await sb.from('product_images').delete().not('barcode', 'is', null);
           await sb.from('app_settings')
             .upsert({ key: 'daily_reset_date', value: todayKey });
         }
