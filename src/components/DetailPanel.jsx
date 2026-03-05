@@ -48,7 +48,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const foundCount  = locs.filter(l => checks[l.location_code]?.result === 'found').length;
   const notFoundCount = locs.filter(l => checks[l.location_code]?.result === 'not_found').length;
   const pct  = locs.length > 0 ? Math.round((done / locs.length) * 100) : 0;
-  const completed = locs.length > 0 && done === locs.length;
+  const completed = locs.length > 0 && (done === locs.length || foundCount > 0);
 
   // 헤더 상품 목록: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
