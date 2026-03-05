@@ -3,12 +3,17 @@ const REASON_STYLE = {
   OVERAGE:  { bg: 'bg-yellow-50', badge: 'bg-yellow-100 text-yellow-700', countColor: 'text-yellow-600', label: 'OVERAGE'  },
 };
 
-/** "2026-02-27T22:15:22+00:00" → "02.27 22:15:22" */
+/** UTC ISO → KST "MM.DD HH:mm:ss" */
 function cardDate(dateStr) {
   if (!dateStr) return '';
-  const m = dateStr.match(/\d{4}-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
-  if (!m) return dateStr;
-  return `${m[1]}.${m[2]} ${m[3]}:${m[4]}:${m[5]}`;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${mm}.${dd} ${hh}:${mi}:${ss}`;
 }
 
 /** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */

@@ -78,6 +78,7 @@ export default function MemoModal({ user, onClose }) {
 
   const formatDate = (iso) => {
     const d = new Date(iso);
+    if (isNaN(d)) return iso;
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const hh = String(d.getHours()).padStart(2, '0');
