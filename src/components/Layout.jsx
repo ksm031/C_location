@@ -213,27 +213,27 @@ export default function Layout({ user, onLogout }) {
   const selectedStars    = selected ? (stars[selected]  ?? {}) : {};
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100">
+    <div className="h-[100dvh] flex flex-col bg-slate-100">
       {/* ── 상단 헤더 ── */}
-      <header className="flex items-center justify-between px-4 md:px-5 py-3 bg-white/95 backdrop-blur border-b border-slate-200 flex-shrink-0 shadow-sm">
+      <header className="flex items-center justify-between px-3 md:px-5 py-2 md:py-3 bg-white/95 backdrop-blur border-b border-slate-200 flex-shrink-0 shadow-sm">
         <button
-          className="flex items-center gap-2 group"
+          className="flex items-center gap-1.5 group"
           onClick={() => setShowMemo(true)}
           title="공유 메모장 열기"
         >
-          <span className="text-xl">📦</span>
+          <span className="text-lg md:text-xl">📦</span>
           <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base
                            group-hover:text-blue-600 transition-colors">진열로케이션정리</span>
         </button>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => setShowPaste(true)}
-            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium
-                       rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+            className="px-3 md:px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-medium
+                       rounded-lg transition-colors flex items-center gap-1 shadow-sm"
           >
             <span>+</span> 붙여넣기
           </button>
-          <span className="text-sm text-slate-500">
+          <span className="hidden sm:inline text-sm text-slate-500">
             <span className="font-medium text-slate-700">{user.nickname}</span>
           </span>
           <button

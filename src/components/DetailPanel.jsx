@@ -88,26 +88,28 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
 
   return (
     <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-      {/* 모바일 뒤로가기 */}
+      {/* 모바일: 뒤로가기 + 토트번호 한 줄 */}
       {onBack && (
-        <button
-          onClick={onBack}
-          className="md:hidden flex items-center gap-1.5 px-4 py-2.5 bg-white border-b border-slate-200
-                     text-sm text-blue-600 font-medium flex-shrink-0"
-        >
-          <span>&#8592;</span> 목록으로
-        </button>
+        <div className="md:hidden flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-200 flex-shrink-0">
+          <button
+            onClick={onBack}
+            className="text-blue-600 font-medium text-sm flex-shrink-0"
+          >
+            &#8592; 목록
+          </button>
+          <span className="font-mono text-base font-bold text-slate-800 truncate">{a.tote_id ?? '-'}</span>
+        </div>
       )}
 
       {/* 상단 정보 헤더 */}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex-shrink-0">
-        {/* 행 1: 토트번호 */}
-        <div className="font-mono text-lg md:text-xl font-bold text-slate-800 truncate">
+      <div className="bg-white border-b border-slate-200 px-3 md:px-6 py-2 md:py-3 flex-shrink-0">
+        {/* 행 1: 토트번호 (데스크탑만) */}
+        <div className="hidden md:block font-mono text-xl font-bold text-slate-800 truncate">
           {a.tote_id ?? '-'}
         </div>
 
         {/* 행 2: 숏/오버 배지 + 완료여부 */}
-        <div className="flex items-center gap-2 mt-1.5">
+        <div className="flex items-center gap-2 md:mt-1.5">
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).badge}`}>
             {a.reason}
           </span>
@@ -181,41 +183,44 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
       </div>
 
       {/* 정렬 + 필터 컨트롤 */}
-      <div className="px-4 md:px-6 py-2.5 bg-white border-b border-slate-100 flex flex-wrap items-center gap-2 md:gap-3 flex-shrink-0">
-        <span className="text-xs text-slate-500">정렬:</span>
-        <div className="flex gap-1">
-          {[['location', '로케이션'], ['time', '진열시각']].map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setSortBy(val)}
-              className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
-                sortBy === val ? 'bg-blue-100 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <div className="px-3 md:px-6 py-2 bg-white border-b border-slate-100 flex-shrink-0
+                      overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-2 md:gap-3 min-w-max">
+          <span className="text-xs text-slate-500">정렬:</span>
+          <div className="flex gap-1">
+            {[['location', '로케이션'], ['time', '진열시각']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setSortBy(val)}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
+                  sortBy === val ? 'bg-blue-100 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-        <span className="text-xs text-slate-500 ml-1 md:ml-3">필터:</span>
-        <div className="flex gap-1">
-          {[
-            ['all',       '전체'],
-            ['unchecked', '미체크'],
-            ['found',     '발견'],
-            ['not_found', '없음'],
-            ['starred',   '★ 관심'],
-          ].map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setFilter(val)}
-              className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
-                filterBy === val ? 'bg-slate-700 text-white font-medium' : 'text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          <span className="text-xs text-slate-500 ml-1 md:ml-3">필터:</span>
+          <div className="flex gap-1">
+            {[
+              ['all',       '전체'],
+              ['unchecked', '미체크'],
+              ['found',     '발견'],
+              ['not_found', '없음'],
+              ['starred',   '★ 관심'],
+            ].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setFilter(val)}
+                className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
+                  filterBy === val ? 'bg-slate-700 text-white font-medium' : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
