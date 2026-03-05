@@ -39,11 +39,15 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
     );
   }, [filtered, sort]);
 
-  // 완료 건수 (모든 로케이션 체크 완료)
+  // 완료 건수 (ErrorCard의 completed 조건과 동일: 전체 체크 OR 하나라도 발견)
   const completedCount = useMemo(() =>
     analyses.filter(a => {
       const locs = a.locations ?? [];
-      return locs.length > 0 && locs.every(l => (checks[a.id] ?? {})[l.location_code]);
+      if (locs.length === 0) return false;
+      const chks = checks[a.id] ?? {};
+      const done       = locs.filter(l => chks[l.location_code]).length;
+      const foundCount = locs.filter(l => chks[l.location_code]?.result === 'found').length;
+      return done === locs.length || foundCount > 0;
     }).length,
     [analyses, checks]
   );
