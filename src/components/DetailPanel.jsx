@@ -161,9 +161,10 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
               {/* 자세히 → 전산 품목 체크 패널 */}
               <button
                 onClick={() => setShowSysItems(true)}
-                className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-auto pl-2"
+                className="flex-shrink-0 ml-auto px-2.5 py-0.5 text-xs font-medium text-blue-600
+                           bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-full transition-colors"
               >
-                자세히 ▼
+                자세히
               </button>
             </div>
 
