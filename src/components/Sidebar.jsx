@@ -89,30 +89,28 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
 
       {/* 진행 현황 + 전체 삭제 */}
       {total > 0 && (
-        <div className="px-3 py-2.5 border-b border-slate-100 space-y-1.5">
+        <div className="px-3 py-2 border-b border-slate-100 space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className={`font-medium ${allDone ? 'text-green-600' : 'text-slate-600'}`}>
               완료 {completedCount} / {total}건
-              {search && <span className="text-slate-400 font-normal"> (필터: {filtered.length}건)</span>}
+              {search && <span className="text-slate-400 font-normal"> ({filtered.length}건)</span>}
               {allDone && <span className="ml-1">✓</span>}
             </span>
-            <button
-              onClick={onDeleteAll}
-              className="text-red-400 hover:text-red-600 transition-colors"
-            >
-              전체 삭제
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">{pct}%</span>
+              <button
+                onClick={onDeleteAll}
+                className="text-red-400 hover:text-red-600 transition-colors"
+              >
+                전체 삭제
+              </button>
+            </div>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${allDone ? 'bg-green-500' : 'bg-blue-500'}`}
               style={{ width: `${pct}%` }}
             />
-          </div>
-          <div className="flex justify-between text-[10px] text-slate-400">
-            <span>0</span>
-            <span>{pct}%</span>
-            <span>{total}</span>
           </div>
         </div>
       )}

@@ -30,7 +30,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   const foundCount   = locs.filter(l => checks[l.location_code]?.result === 'found').length;
   const notFoundCount = locs.filter(l => checks[l.location_code]?.result === 'not_found').length;
   const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
-  const completed = total > 0 && done === total;
+  const completed = total > 0 && (done === total || foundCount > 0);
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
 
