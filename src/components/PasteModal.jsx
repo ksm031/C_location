@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
-function ImageZone({ barcode, productName, dataUrl, onSet, onClear }) {
+function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -39,7 +39,18 @@ function ImageZone({ barcode, productName, dataUrl, onSet, onClear }) {
         <span className="font-mono text-xs font-medium text-slate-700">
           {barcode.slice(0, -3)}<span className="font-bold">{barcode.slice(-3)}</span>
         </span>
-        <span className="text-xs text-slate-400 truncate">{productName}</span>
+        <span className="text-xs text-slate-400 truncate flex-1">{productName}</span>
+        {skuId && (
+          <a
+            href={`https://inventory.coupang.com/sku/${skuId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 text-xs text-blue-500 hover:text-blue-700 underline"
+            onClick={e => e.stopPropagation()}
+          >
+            상품페이지 ↗
+          </a>
+        )}
       </div>
 
       {dataUrl ? (
@@ -90,7 +101,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
       for (const item of [...(r.overage_items ?? []), ...(r.tote_remaining_items ?? [])]) {
         if (!seen.has(item.barcode)) {
           seen.add(item.barcode);
-          list.push({ barcode: item.barcode, product_name: item.product_name });
+          list.push({ barcode: item.barcode, product_name: item.product_name, sku_id: item.sku_id });
         }
       }
     }
@@ -291,6 +302,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
                     key={p.barcode}
                     barcode={p.barcode}
                     productName={p.product_name}
+                    skuId={p.sku_id}
                     dataUrl={images[p.barcode] ?? null}
                     onSet={handleSetImg}
                     onClear={handleClearImg}
