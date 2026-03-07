@@ -1,12 +1,12 @@
 /**
- * parser.js - 쿠팡 '진열작업 오류보고 상세' 페이지 파싱 엔진
+ * parser.js - 쿠팡 인트라넷 페이지 파싱 엔진
  *
  * 입력: 인트라넷 페이지에서 Ctrl+A → Ctrl+C 한 가시적 텍스트
- * 출력: 구조화된 오류보고 데이터 배열
+ * 출력: 구조화된 데이터 배열
  *
  * 지원 형식:
- *  - 단일 오류보고 붙여넣기
- *  - 여러 오류보고 연속 붙여넣기 (멀티 파싱)
+ *  - 진열작업 오류보고 상세 (단일/멀티)
+ *  - 입고 토트 상세
  */
 
 // ── 정규식 패턴 ────────────────────────────────────────────────────────────
@@ -46,6 +46,21 @@ const TOTE_REM_ROW = /^(\d+)\t([^\t]+)\t(\S+)[^\t]*\t(\d+)/;
  * 필드: sku_id, product_name, barcode, qty, registered_at, registered_by
  */
 const OVERAGE_ITEM_ROW = /^(\d+)\t(.+?)\t(\S+)\t(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t(.+?)\s*$/;
+
+/**
+ * 입고 토트 상세 헤더 행 패턴
+ * 예: 66-RCRT10-52-136	LARGE C/N	2026-03-06 20:46:52	B5997067	RCS0000021006	-	컨베이어	S4IB0203	6	6	6	0	0	-
+ * 필드: tote_id, destination, inbound_at, worker, work_desk, dist_type, move_type, conveyor_dest,
+ *        tote_qty, placed_qty, buffer_picking, problem_zone, return_buffer, display_error
+ */
+const TOTE_DETAIL_ROW = /^([^\t]+)\t([^\t]*)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t([^\t]+)\t([^\t]+)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(\d+)\t(\d+)\t(\d+)\t(\d+)\t(\d+)\t([^\t]*)\s*$/;
+
+/**
+ * 입고 토트 상세 > 진열 내역 행 패턴
+ * 예: PICKING	66-42HV5-6-404	188089362	일반	1	2026-03-07 01:44:30	R1499794				-
+ * 필드: location_type, location_code, sku_id, item_type, qty, display_at, worker
+ */
+const TOTE_DISP_ROW = /^(PICKING|BUFFER|SHELF|FLOOR)\t([\w-]+)\t(\d+)\t([^\t]+)\t(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t(\w+)/;
 
 // ── 내부 파싱 함수 ──────────────────────────────────────────────────────────
 
@@ -187,6 +202,77 @@ function parseSectionLines(lines) {
   return report;
 }
 
+/**
+ * 입고 토트 상세 페이지 라인 배열을 받아 토트 정보 객체로 파싱
+ * 상품 정보는 수기 입력으로만 추가 (자동 파싱 안 함)
+ */
+function parseToteDetail(lines) {
+  let tote = null;
+  let inDisplay = false;
+  const displayRows = [];
+
+  for (const line of lines) {
+    if (!tote) {
+      const m = TOTE_DETAIL_ROW.exec(line);
+      if (m) {
+        tote = {
+          tote_id:    m[1],
+          worker:     m[4],
+          reported_at: m[3],
+          tote_qty:   parseInt(m[9]),
+          placed_qty: parseInt(m[10]),
+        };
+      }
+      continue;
+    }
+
+    if (line === '진열 내역') { inDisplay = true; continue; }
+
+    if (inDisplay) {
+      if (line.startsWith('로케이션 유형\t')) continue;
+      const m = TOTE_DISP_ROW.exec(line);
+      if (m) {
+        displayRows.push({
+          location_code:  m[2],
+          sku_id:         m[3],
+          display_qty:    parseInt(m[5]),
+          display_at:     m[6],
+          display_worker: m[7],
+        });
+      }
+    }
+  }
+
+  if (!tote) return null;
+
+  // 진열 내역 → 로케이션별 그룹핑
+  const locationMap = {};
+  for (const row of displayRows) {
+    if (!locationMap[row.location_code]) {
+      locationMap[row.location_code] = { location_code: row.location_code, items: [], total_qty: 0 };
+    }
+    locationMap[row.location_code].items.push({
+      sku_id: row.sku_id, display_worker: row.display_worker,
+      display_qty: row.display_qty, display_at: row.display_at,
+    });
+    locationMap[row.location_code].total_qty += row.display_qty;
+  }
+
+  // 토트 바코드 기반 synthetic report_id (중복 방지)
+  const dateCompact = tote.reported_at.replace(/[-: ]/g, '').slice(0, 12);
+  tote.report_id           = `TOTE_${tote.tote_id}_${dateCompact}`;
+  tote.reason              = 'TOTE_INBOUND';
+  tote.sys_qty             = tote.tote_qty;
+  tote.locations           = Object.values(locationMap).sort((a, b) =>
+    a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
+  );
+  tote.overage_items        = [];
+  tote.tote_remaining_items = [];
+  tote.page_type            = 'tote_detail';
+
+  return tote;
+}
+
 // ── 공개 API ────────────────────────────────────────────────────────────────
 
 /**
@@ -207,6 +293,13 @@ export function parseText(rawText) {
     .split('\n')
     .map(l => l.trim())
     .filter(l => l.length > 0);
+
+  // 입고 토트 상세 페이지 감지 (헤더 행 "토트바코드\t토트목적지" 존재)
+  if (lines.some(l => l.startsWith('토트바코드\t토트목적지'))) {
+    const tote = parseToteDetail(lines);
+    if (tote) return { reports: [tote], errors: [], pageType: 'tote_detail' };
+    return { reports: [], errors: ['입고 토트 상세 파싱 실패'], pageType: 'tote_detail' };
+  }
 
   // '진열 오류 내역' 을 각 보고서의 시작점으로 사용
   const sectionStarts = [];

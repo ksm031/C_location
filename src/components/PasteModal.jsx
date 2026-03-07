@@ -268,8 +268,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h2 className="font-bold text-slate-800">
-            {step === 'paste'   && '오류보고 붙여넣기'}
-            {step === 'preview' && `파싱 결과 확인 (${parsed?.reports?.length ?? 0}건)`}
+            {step === 'paste'   && '오류보고 / 입고 토트 붙여넣기'}
+            {step === 'preview' && (parsed?.pageType === 'tote_detail'
+              ? '입고 토트 상세 확인'
+              : `파싱 결과 확인 (${parsed?.reports?.length ?? 0}건)`)}
             {step === 'image'   && `상품 이미지 첨부 (${uniqueProducts.length}종)`}
             {step === 'done'    && '저장 완료'}
           </h2>
@@ -281,13 +283,13 @@ export default function PasteModal({ user, onClose, onSaved }) {
           <>
             <div className="flex-1 overflow-hidden p-6 flex flex-col gap-3">
               <p className="text-sm text-slate-600">
-                인트라넷 <strong>진열작업 오류보고 상세</strong> 페이지에서{' '}
+                인트라넷 <strong>진열작업 오류보고 상세</strong> 또는 <strong>입고 토트 상세</strong> 페이지에서{' '}
                 <kbd className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">Ctrl+A</kbd>{' '}
                 →{' '}
                 <kbd className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">Ctrl+C</kbd>{' '}
                 후 아래에 붙여넣으세요.
                 <br />
-                <span className="text-xs text-slate-400">여러 보고서를 연속으로 붙여넣기 해도 됩니다.</span>
+                <span className="text-xs text-slate-400">오류보고는 여러 건 연속 붙여넣기 가능 · 입고 토트는 상품을 수기로 입력하세요.</span>
               </p>
               <textarea
                 value={text}
@@ -352,18 +354,35 @@ export default function PasteModal({ user, onClose, onSaved }) {
               {parsed.reports.map((r, i) => (
                 <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-slate-800">{r.report_id}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      r.reason === 'SHORTAGE' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {r.reason}
+                    <span className="font-mono text-sm font-bold text-slate-800">
+                      {r.page_type === 'tote_detail' ? r.tote_id : r.report_id}
                     </span>
+                    {r.page_type === 'tote_detail' ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
+                        입고 토트
+                      </span>
+                    ) : (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        r.reason === 'SHORTAGE' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {r.reason}
+                      </span>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-600">
-                    <span>진열자: {r.worker}</span>
+                    <span>{r.page_type === 'tote_detail' ? '입고작업자' : '진열자'}: {r.worker}</span>
                     <span>토트: {r.tote_id}</span>
-                    <span>신고수량: {r.sys_qty}개</span>
-                    <span>로케이션: {r.locations?.length ?? 0}개</span>
+                    {r.page_type === 'tote_detail' ? (
+                      <>
+                        <span>토트수량: {r.tote_qty}개</span>
+                        <span>진열수량: {r.placed_qty}개</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>신고수량: {r.sys_qty}개</span>
+                        <span>로케이션: {r.locations?.length ?? 0}개</span>
+                      </>
+                    )}
                   </div>
                   {r.locations?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -374,6 +393,9 @@ export default function PasteModal({ user, onClose, onSaved }) {
                         </span>
                       ))}
                     </div>
+                  )}
+                  {r.page_type === 'tote_detail' && (
+                    <p className="text-xs text-slate-400">상품은 아래 수기 바코드 입력란에서 추가하세요.</p>
                   )}
                 </div>
               ))}
