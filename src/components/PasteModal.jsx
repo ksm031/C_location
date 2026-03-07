@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
-function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear }) {
+function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -36,10 +36,20 @@ function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear }) {
   return (
     <div className="border border-slate-200 rounded-xl p-3">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="font-mono text-xs font-medium text-slate-700">
+        <span className="font-mono text-xs font-medium text-slate-700 flex-shrink-0">
           {barcode.slice(0, -3)}<span className="font-bold">{barcode.slice(-3)}</span>
         </span>
-        <span className="text-xs text-slate-400 truncate flex-1">{productName}</span>
+        {nameEditable ? (
+          <input
+            type="text"
+            value={productName}
+            onChange={e => onNameChange(barcode, e.target.value)}
+            placeholder="상품명 입력 (선택)"
+            className="flex-1 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+          />
+        ) : (
+          <span className="text-xs text-slate-400 truncate flex-1">{productName}</span>
+        )}
         {skuId && (
           <a
             href={`https://inventory.coupang.com/sku/${skuId}`}
@@ -92,6 +102,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [saveResult, setSaveResult] = useState(null);
   const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'image'|'done'
   const [images, setImages]         = useState({});      // { barcode: base64 }
+  const [nameOverrides, setNameOverrides] = useState({}); // { barcode: string } 수기 바코드 상품명
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -133,10 +144,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
         }
       }
     }
-    // 수기 입력 바코드는 중복 여부 관계없이 항상 추가
+    // 수기 입력 바코드는 중복 여부 관계없이 항상 추가 (isManual 플래그)
     for (const barcode of manualBarcodes) {
       const info = parsedBarcodeMap.get(barcode);
-      list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null });
+      list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null, isManual: true });
     }
     return list;
   }, [parsed, manualBarcodes, parsedBarcodeMap]);
@@ -161,7 +172,12 @@ export default function PasteModal({ user, onClose, onSaved }) {
 
     const manualItems = manualBarcodes.map(barcode => {
       const info = parsedBarcodeMap.get(barcode);
-      return { sku_id: info?.sku_id ?? null, product_name: info?.product_name ?? '', barcode, sys_qty: null };
+      return {
+        sku_id: info?.sku_id ?? null,
+        product_name: nameOverrides[barcode] ?? info?.product_name ?? '',
+        barcode,
+        sys_qty: null,
+      };
     });
 
     let saved = 0, skipped = 0;
@@ -200,6 +216,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setParsed(null);
     setSaveResult(null);
     setImages({});
+    setNameOverrides({});
   };
 
   const handleSetImg = useCallback((barcode, dataUrl) => {
@@ -208,6 +225,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
 
   const handleClearImg = useCallback((barcode) => {
     setImages(prev => { const next = { ...prev }; delete next[barcode]; return next; });
+  }, []);
+
+  const handleNameChange = useCallback((barcode, name) => {
+    setNameOverrides(prev => ({ ...prev, [barcode]: name }));
   }, []);
 
   const attachedCount = Object.values(images).filter(Boolean).length;
@@ -352,15 +373,17 @@ export default function PasteModal({ user, onClose, onSaved }) {
                 각 상품에 이미지를 첨부할 수 있습니다. 이미지는 선택사항이며 모든 기기에서 공유됩니다.
               </p>
               <div className="space-y-2">
-                {uniqueProducts.map(p => (
+                {uniqueProducts.map((p, i) => (
                   <ImageZone
-                    key={p.barcode}
+                    key={`${p.barcode}-${i}`}
                     barcode={p.barcode}
-                    productName={p.product_name}
+                    productName={p.isManual ? (nameOverrides[p.barcode] ?? p.product_name) : p.product_name}
                     skuId={p.sku_id}
                     dataUrl={images[p.barcode] ?? null}
                     onSet={handleSetImg}
                     onClear={handleClearImg}
+                    nameEditable={p.isManual && !p.sku_id}
+                    onNameChange={handleNameChange}
                   />
                 ))}
                 {uniqueProducts.length === 0 && (
