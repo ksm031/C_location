@@ -263,15 +263,26 @@ function parseToteDetail(lines) {
 
   if (!tote) return null;
 
+  // stock_items로 sku_id → { barcode, product_name } 맵 구성
+  const skuMap = new Map();
+  for (const s of stockItems) {
+    if (!skuMap.has(s.sku_id)) skuMap.set(s.sku_id, { barcode: s.barcode, product_name: s.product_name });
+  }
+
   // 진열 내역 → 로케이션별 그룹핑
   const locationMap = {};
   for (const row of displayRows) {
     if (!locationMap[row.location_code]) {
       locationMap[row.location_code] = { location_code: row.location_code, items: [], total_qty: 0 };
     }
+    const info = skuMap.get(row.sku_id) ?? {};
     locationMap[row.location_code].items.push({
-      sku_id: row.sku_id, display_worker: row.display_worker,
-      display_qty: row.display_qty, display_at: row.display_at,
+      sku_id: row.sku_id,
+      barcode: info.barcode ?? null,
+      product_name: info.product_name ?? '',
+      display_worker: row.display_worker,
+      display_qty: row.display_qty,
+      display_at: row.display_at,
     });
     locationMap[row.location_code].total_qty += row.display_qty;
   }
