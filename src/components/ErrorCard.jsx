@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { cardDate, REASON_STYLE } from '../lib/utils';
+import ToteMemoModal from './ToteMemoModal';
 
 /** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */
 function shortLoc(code) {
@@ -6,7 +8,7 @@ function shortLoc(code) {
   return parts.slice(0, 2).join('-');
 }
 
-export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete }) {
+export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete, memo, onMemoSave, onMemoDelete }) {
   const a     = analysis;
   const locs  = a.locations ?? [];
   const total = locs.length;
@@ -18,10 +20,16 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
 
+  const [memoOpen, setMemoOpen] = useState(false);
+
   // 대표 상품: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
   const firstItem = issueItems.find(Boolean) ?? null;
-  const uniqueBarcodeCount = new Set(issueItems.map(i => i.barcode)).size;
+  // 외 X종: 초과(overage_items) / 누락(tote_remaining_items) 각각의 종류만 카운트
+  const barcodeCountItems = a.reason === 'OVERAGE'
+    ? (a.overage_items ?? [])
+    : (a.tote_remaining_items ?? []);
+  const uniqueBarcodeCount = new Set(barcodeCountItems.map(i => i.barcode)).size;
 
   // 누락/초과 수량 텍스트
   const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
@@ -134,6 +142,31 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
       {total === 0 && (
         <p className="text-xs text-slate-400 italic">진열 로케이션 없음</p>
+      )}
+
+      {/* 메모 버튼 */}
+      <div className="pt-0.5">
+        <button
+          onClick={e => { e.stopPropagation(); setMemoOpen(true); }}
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors
+            ${memo
+              ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+              : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            }`}
+        >
+          <span>{memo ? '📝' : '✎'}</span>
+          <span>{memo ? '메모 있음' : '메모'}</span>
+        </button>
+      </div>
+
+      {memoOpen && (
+        <ToteMemoModal
+          toteId={a.tote_id}
+          initialText={memo ?? ''}
+          onSave={onMemoSave}
+          onDelete={onMemoDelete}
+          onClose={() => setMemoOpen(false)}
+        />
       )}
     </div>
   );
