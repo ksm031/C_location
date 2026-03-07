@@ -66,13 +66,23 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         </button>
       </div>
 
-      {/* 행 2: 진열자 */}
+      {/* 행 2: 대표 로케이션 (볼드) */}
+      {shownLocs.length > 0 ? (
+        <div className="text-xs font-bold font-mono text-slate-700 truncate">
+          {shownLocs.join('  ')}
+          {extraLocs > 0 && <span className="text-slate-400 font-normal ml-1">+{extraLocs}</span>}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic">진열 로케이션 없음</p>
+      )}
+
+      {/* 행 3: 진열자 */}
       <div className="text-xs text-slate-500">{a.worker}</div>
 
-      {/* 행 3: 신고 시각 */}
+      {/* 행 4: 신고 시각 */}
       <div className="text-xs text-slate-400">{cardDate(a.reported_at)}</div>
 
-      {/* 행 4: 바코드 + 누락/초과 / 상품명 */}
+      {/* 행 5: 바코드 + 누락/초과 / 상품명 */}
       {firstItem ? (
         <div className="text-xs space-y-0.5 min-w-0 overflow-hidden">
           <div className="flex items-baseline gap-1 min-w-0 overflow-hidden">
@@ -93,14 +103,6 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         </div>
       ) : (
         <div className="text-xs text-slate-400">{diffLabel}</div>
-      )}
-
-      {/* 행 5: 대표 로케이션 */}
-      {shownLocs.length > 0 && (
-        <div className="text-xs text-slate-500 font-mono truncate">
-          {shownLocs.join('  ')}
-          {extraLocs > 0 && <span className="text-slate-400 ml-1">+{extraLocs}</span>}
-        </div>
       )}
 
       {/* 진행률 바 */}
@@ -136,9 +138,6 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         </div>
       )}
 
-      {total === 0 && (
-        <p className="text-xs text-slate-400 italic">진열 로케이션 없음</p>
-      )}
     </div>
   );
 }
