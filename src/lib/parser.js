@@ -62,7 +62,13 @@ const TOTE_DETAIL_ROW = /^([^\t]+)\t([^\t]*)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{
  */
 const TOTE_DISP_ROW = /^(PICKING|BUFFER|SHELF|FLOOR)\t([\w-]+)\t(\d+)\t([^\t]+)\t(\d+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\t(\w+)/;
 
-// ── 내부 파싱 함수 ──────────────────────────────────────────────────────────
+/**
+ * 입고 토트 상세 > 토트 내 재고 행 패턴
+ * 예: IBC0130853417	125929360	69652250	188089362	S0037085600721	뽀로로 배변 팬티 2P / 2개 핑크 S(12M)	1	-	-
+ * 필드: ibc_barcode, ext_order, ext_sku_id, sku_id, barcode, product_name, qty
+ */
+const TOTE_STOCK_ROW = /^(IBC\w+)\t(\w+)\t(\w+)\t(\d+)\t(\S+)\t([^\t]+)\t(\d+)/;
+
 
 /**
  * '진열 오류 내역' 섹션부터 시작하는 라인 배열을 받아 단일 오류보고 객체로 파싱
@@ -208,7 +214,9 @@ function parseSectionLines(lines) {
  */
 function parseToteDetail(lines) {
   let tote = null;
+  let inStock  = false;
   let inDisplay = false;
+  const stockItems  = [];
   const displayRows = [];
 
   for (const line of lines) {
@@ -226,7 +234,17 @@ function parseToteDetail(lines) {
       continue;
     }
 
-    if (line === '진열 내역') { inDisplay = true; continue; }
+    if (line === '토트 내 재고') { inStock = true; continue; }
+    if (line === '진열 내역')  { inStock = false; inDisplay = true; continue; }
+
+    if (inStock) {
+      if (line.startsWith('하차번호')) continue; // 헤더
+      const m = TOTE_STOCK_ROW.exec(line);
+      if (m) {
+        stockItems.push({ sku_id: m[4], product_name: m[6], barcode: m[5], qty: parseInt(m[7]) });
+      }
+      continue;
+    }
 
     if (inDisplay) {
       if (line.startsWith('로케이션 유형\t')) continue;
@@ -245,15 +263,26 @@ function parseToteDetail(lines) {
 
   if (!tote) return null;
 
+  // stock_items로 sku_id → { barcode, product_name } 맵 구성
+  const skuMap = new Map();
+  for (const s of stockItems) {
+    if (!skuMap.has(s.sku_id)) skuMap.set(s.sku_id, { barcode: s.barcode, product_name: s.product_name });
+  }
+
   // 진열 내역 → 로케이션별 그룹핑
   const locationMap = {};
   for (const row of displayRows) {
     if (!locationMap[row.location_code]) {
       locationMap[row.location_code] = { location_code: row.location_code, items: [], total_qty: 0 };
     }
+    const info = skuMap.get(row.sku_id) ?? {};
     locationMap[row.location_code].items.push({
-      sku_id: row.sku_id, display_worker: row.display_worker,
-      display_qty: row.display_qty, display_at: row.display_at,
+      sku_id: row.sku_id,
+      barcode: info.barcode ?? null,
+      product_name: info.product_name ?? '',
+      display_worker: row.display_worker,
+      display_qty: row.display_qty,
+      display_at: row.display_at,
     });
     locationMap[row.location_code].total_qty += row.display_qty;
   }
@@ -266,6 +295,7 @@ function parseToteDetail(lines) {
   tote.locations           = Object.values(locationMap).sort((a, b) =>
     a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
   );
+  tote.stock_items          = stockItems; // 바코드 매치용 (저장 안 함)
   tote.overage_items        = [];
   tote.tote_remaining_items = [];
   tote.page_type            = 'tote_detail';

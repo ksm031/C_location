@@ -134,6 +134,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
       const allItems = [
         ...(r.overage_items ?? []),
         ...(r.tote_remaining_items ?? []),
+        ...(r.stock_items ?? []),
         ...(r.locations ?? []).flatMap(l => l.items ?? []),
       ];
       for (const item of allItems) {
@@ -357,11 +358,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
                     <span className="font-mono text-sm font-bold text-slate-800">
                       {r.page_type === 'tote_detail' ? r.tote_id : r.report_id}
                     </span>
-                    {r.page_type === 'tote_detail' ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
-                        입고 토트
-                      </span>
-                    ) : (
+                    {r.page_type !== 'tote_detail' && (
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         r.reason === 'SHORTAGE' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
                       }`}>
@@ -393,9 +390,6 @@ export default function PasteModal({ user, onClose, onSaved }) {
                         </span>
                       ))}
                     </div>
-                  )}
-                  {r.page_type === 'tote_detail' && (
-                    <p className="text-xs text-slate-400">상품은 아래 수기 바코드 입력란에서 추가하세요.</p>
                   )}
                 </div>
               ))}
