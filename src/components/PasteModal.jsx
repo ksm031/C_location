@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
-function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange }) {
+function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -49,6 +49,16 @@ function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameE
           />
         ) : (
           <span className="text-xs text-slate-400 truncate flex-1">{productName}</span>
+        )}
+        {nameEditable && (
+          <input
+            type="number"
+            min="1"
+            value={qty ?? ''}
+            onChange={e => onQtyChange(barcode, e.target.value === '' ? null : parseInt(e.target.value))}
+            placeholder="수량"
+            className="w-14 flex-shrink-0 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
+          />
         )}
         {skuId && (
           <a
@@ -103,6 +113,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'image'|'done'
   const [images, setImages]         = useState({});      // { barcode: base64 }
   const [nameOverrides, setNameOverrides] = useState({}); // { barcode: string } 수기 바코드 상품명
+  const [qtyOverrides, setQtyOverrides]   = useState({}); // { barcode: number } 수기 바코드 수량
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -176,7 +187,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
         sku_id: info?.sku_id ?? null,
         product_name: nameOverrides[barcode] ?? info?.product_name ?? '',
         barcode,
-        sys_qty: null,
+        sys_qty: qtyOverrides[barcode] ?? null,
       };
     });
 
@@ -217,6 +228,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setSaveResult(null);
     setImages({});
     setNameOverrides({});
+    setQtyOverrides({});
   };
 
   const handleSetImg = useCallback((barcode, dataUrl) => {
@@ -229,6 +241,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
 
   const handleNameChange = useCallback((barcode, name) => {
     setNameOverrides(prev => ({ ...prev, [barcode]: name }));
+  }, []);
+
+  const handleQtyChange = useCallback((barcode, qty) => {
+    setQtyOverrides(prev => ({ ...prev, [barcode]: qty }));
   }, []);
 
   const attachedCount = Object.values(images).filter(Boolean).length;
@@ -384,6 +400,8 @@ export default function PasteModal({ user, onClose, onSaved }) {
                     onClear={handleClearImg}
                     nameEditable={p.isManual && !p.sku_id}
                     onNameChange={handleNameChange}
+                    qty={p.isManual ? (qtyOverrides[p.barcode] ?? null) : null}
+                    onQtyChange={handleQtyChange}
                   />
                 ))}
                 {uniqueProducts.length === 0 && (
