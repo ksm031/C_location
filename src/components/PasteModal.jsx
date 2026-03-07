@@ -133,13 +133,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
         }
       }
     }
-    // 수기 입력 바코드 중 아직 없는 것 추가
+    // 수기 입력 바코드는 중복 여부 관계없이 항상 추가
     for (const barcode of manualBarcodes) {
-      if (!seen.has(barcode)) {
-        seen.add(barcode);
-        const info = parsedBarcodeMap.get(barcode);
-        list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null });
-      }
+      const info = parsedBarcodeMap.get(barcode);
+      list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null });
     }
     return list;
   }, [parsed, manualBarcodes, parsedBarcodeMap]);
@@ -162,6 +159,11 @@ export default function PasteModal({ user, onClose, onSaved }) {
         .map(([barcode, dataUrl]) => saveImg(barcode, dataUrl))
     );
 
+    const manualItems = manualBarcodes.map(barcode => {
+      const info = parsedBarcodeMap.get(barcode);
+      return { sku_id: info?.sku_id ?? null, product_name: info?.product_name ?? '', barcode, sys_qty: null };
+    });
+
     let saved = 0, skipped = 0;
     for (const r of parsed.reports) {
       const { error } = await sb.from('analyses').insert({
@@ -175,7 +177,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
         tote_qty:    r.tote_qty,
         locations:            r.locations,
         overage_items:        r.overage_items ?? [],
-        tote_remaining_items: r.tote_remaining_items ?? [],
+        tote_remaining_items: [...(r.tote_remaining_items ?? []), ...manualItems],
         created_by:           user.nickname,
       });
       if (error) {
