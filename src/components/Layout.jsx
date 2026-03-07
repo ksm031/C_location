@@ -15,6 +15,7 @@ export default function Layout({ user, onLogout }) {
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
   const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
+  const [toteMemos, setToteMemos]   = useState({});   // { tote_id: memo_text }
   const [deletedNotice, setDeletedNotice] = useState(false); // 타 기기 삭제 알림
 
   // ── 타 기기 삭제 감지: analyses 갱신 시 selected가 목록에 없으면 자동 해제 ──
@@ -68,6 +69,13 @@ export default function Layout({ user, onLogout }) {
       }
       setStars(map);
     }
+
+    const memosRes = await sb.from('tote_memos').select('tote_id, memo');
+    if (!memosRes.error && memosRes.data) {
+      const map = {};
+      for (const row of memosRes.data) map[row.tote_id] = row.memo;
+      setToteMemos(map);
+    }
   }, [user.nickname]);
 
   // ── 초기 로드 + 매일 오전 8시 자동 초기화 + Realtime 구독 ───────
@@ -94,6 +102,8 @@ export default function Layout({ user, onLogout }) {
           await sb.from('starred_locations').delete().not('analysis_id', 'is', null);
           // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
           await sb.from('analyses').delete().gte('created_at', '1970-01-01');
+          // 토트 메모 삭제
+          await sb.from('tote_memos').delete().not('tote_id', 'is', null);
           // 상품 이미지 삭제
           await sb.from('product_images').delete().not('barcode', 'is', null);
         }
@@ -117,7 +127,11 @@ export default function Layout({ user, onLogout }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, loadAll)
       .subscribe();
 
-    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); };
+    const ch4 = sb.channel('memos-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tote_memos' }, loadAll)
+      .subscribe();
+
+    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); sb.removeChannel(ch4); };
   }, [loadAll]);
 
   // ── 체크 결과 저장/업데이트 ───────────────────────────────────
@@ -179,6 +193,20 @@ export default function Layout({ user, onLogout }) {
         { onConflict: 'analysis_id,location_code,starred_by' }
       );
     }
+  };
+
+  // ── 토트 메모 저장 ────────────────────────────────────────────
+  const handleMemoSave = async (toteId, text) => {
+    setToteMemos(prev => ({ ...prev, [toteId]: text }));
+    await sb.from('tote_memos').upsert(
+      { tote_id: toteId, memo: text, updated_by: user.nickname, updated_at: new Date().toISOString() },
+      { onConflict: 'tote_id' }
+    );
+  };
+
+  const handleMemoDelete = async (toteId) => {
+    setToteMemos(prev => { const c = { ...prev }; delete c[toteId]; return c; });
+    await sb.from('tote_memos').delete().eq('tote_id', toteId);
   };
 
   // ── 삭제 ──────────────────────────────────────────────────────
@@ -247,6 +275,9 @@ export default function Layout({ user, onLogout }) {
             loading={loadingInit}
             search={search}
             onSearchChange={setSearch}
+            toteMemos={toteMemos}
+            onMemoSave={handleMemoSave}
+            onMemoDelete={handleMemoDelete}
           />
         </div>
         {/* 모바일: 선택 있을 때만 표시 / 데스크탑: 항상 표시 */}

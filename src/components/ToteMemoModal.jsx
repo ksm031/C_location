@@ -1,33 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function ToteMemoModal({ toteId, onClose }) {
-  const key = `tote_memo_${toteId}`;
-  const [text, setText] = useState(() => localStorage.getItem(key) ?? '');
+export default function ToteMemoModal({ toteId, initialText, onSave, onDelete, onClose }) {
+  const [text, setText] = useState(initialText ?? '');
   const textareaRef = useRef(null);
 
   useEffect(() => { textareaRef.current?.focus(); }, []);
 
   const handleSave = () => {
     const trimmed = text.trim();
-    if (trimmed) localStorage.setItem(key, trimmed);
-    else localStorage.removeItem(key);
-    onClose(!!trimmed);
-  };
-
-  const handleDelete = () => {
-    localStorage.removeItem(key);
-    onClose(false);
+    if (trimmed) onSave(trimmed);
+    else onDelete();
+    onClose();
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape') onClose(null);
+    if (e.key === 'Escape') onClose();
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSave();
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      onClick={() => onClose(null)}
+      onClick={onClose}
     >
       <div
         className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:w-80 p-4 space-y-3"
@@ -36,7 +30,7 @@ export default function ToteMemoModal({ toteId, onClose }) {
         <div className="flex items-center justify-between">
           <span className="font-mono text-sm font-bold text-slate-700 truncate">{toteId}</span>
           <button
-            onClick={() => onClose(null)}
+            onClick={onClose}
             className="text-slate-400 hover:text-slate-600 leading-none text-lg w-7 h-7 flex items-center justify-center"
           >
             ✕
@@ -53,9 +47,9 @@ export default function ToteMemoModal({ toteId, onClose }) {
                      focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
         />
         <div className="flex items-center justify-between">
-          {localStorage.getItem(key) ? (
+          {initialText ? (
             <button
-              onClick={handleDelete}
+              onClick={() => { onDelete(); onClose(); }}
               className="text-xs text-red-400 hover:text-red-600 transition-colors"
             >
               메모 삭제

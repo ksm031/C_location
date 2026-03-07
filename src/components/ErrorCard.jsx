@@ -8,7 +8,7 @@ function shortLoc(code) {
   return parts.slice(0, 2).join('-');
 }
 
-export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete }) {
+export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete, memo, onMemoSave, onMemoDelete }) {
   const a     = analysis;
   const locs  = a.locations ?? [];
   const total = locs.length;
@@ -20,10 +20,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
 
-  // 토트 메모
-  const memoKey = `tote_memo_${a.tote_id}`;
   const [memoOpen, setMemoOpen] = useState(false);
-  const [hasMemo, setHasMemo]   = useState(() => !!localStorage.getItem(memoKey));
 
   // 대표 상품: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
@@ -152,23 +149,23 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         <button
           onClick={e => { e.stopPropagation(); setMemoOpen(true); }}
           className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors
-            ${hasMemo
+            ${memo
               ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
               : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
             }`}
         >
-          <span>{hasMemo ? '📝' : '✎'}</span>
-          <span>{hasMemo ? '메모 있음' : '메모'}</span>
+          <span>{memo ? '📝' : '✎'}</span>
+          <span>{memo ? '메모 있음' : '메모'}</span>
         </button>
       </div>
 
       {memoOpen && (
         <ToteMemoModal
           toteId={a.tote_id}
-          onClose={(saved) => {
-            setMemoOpen(false);
-            if (saved !== null) setHasMemo(saved);
-          }}
+          initialText={memo ?? ''}
+          onSave={onMemoSave}
+          onDelete={onMemoDelete}
+          onClose={() => setMemoOpen(false)}
         />
       )}
     </div>
