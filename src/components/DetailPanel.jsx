@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import LocationAccordion from './LocationAccordion';
 import SystemItemsPanel from './SystemItemsPanel';
+import ToteMemoModal from './ToteMemoModal';
 import { cardDate, REASON_STYLE } from '../lib/utils';
 
-export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack }) {
+export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, memo, onMemoSave, onMemoDelete }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
   const [filterBy, setFilter]     = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
   const [showSysItems, setShowSysItems] = useState(false);
+  const [memoOpen, setMemoOpen]   = useState(false);
 
   // analysis 바뀌면 패널 닫기
   useEffect(() => {
@@ -127,6 +129,24 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           <span>전산 {a.sys_qty}개</span>
         </div>
 
+        {/* 메모 버튼 */}
+        <div className="mt-1.5">
+          <button
+            onClick={() => setMemoOpen(true)}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors
+              ${memo
+                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                : 'text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'
+              }`}
+          >
+            <span>{memo ? '📝' : '✎'}</span>
+            <span>{memo ? '메모 있음' : '메모 추가'}</span>
+          </button>
+          {memo && (
+            <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">{memo}</p>
+          )}
+        </div>
+
         {/* 행 4: 찾아야하는 갯수 + 바코드 목록 (접기/펼치기) */}
         {uniqueProducts.length > 0 && (
           <div className="mt-1">
@@ -212,6 +232,17 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         <SystemItemsPanel
           analyses={[analysis]}
           onClose={() => setShowSysItems(false)}
+        />
+      )}
+
+      {/* 토트 메모 모달 */}
+      {memoOpen && (
+        <ToteMemoModal
+          toteId={analysis.tote_id}
+          initialText={memo ?? ''}
+          onSave={(text) => onMemoSave(analysis.tote_id, text)}
+          onDelete={() => onMemoDelete(analysis.tote_id)}
+          onClose={() => setMemoOpen(false)}
         />
       )}
 
