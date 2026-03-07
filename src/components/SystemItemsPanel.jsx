@@ -31,37 +31,36 @@ export default function SystemItemsPanel({ analyses, onClose }) {
   const [images, setImages]     = useState({});
   const [zoomImg, setZoomImg]   = useState(null);
 
-  // 전체 analyses 에서 overage_items + tote_remaining_items 집계, 바코드 기준 중복 제거
+  // 전체 analyses 에서 overage_items + tote_remaining_items 수집 (중복 제거 없음, 고유 _key 부여)
   const items = (() => {
-    const map = {};
+    const list = [];
     for (const a of analyses) {
       for (const item of [...(a.overage_items || []), ...(a.tote_remaining_items || [])]) {
         if (!item.barcode) continue;
-        if (!map[item.barcode]) map[item.barcode] = { ...item };
+        list.push({ ...item });
       }
     }
-    return Object.values(map);
+    return list.map((item, i) => ({ ...item, _key: `${item.barcode}_${i}` }));
   })();
 
   // 상품 이미지 로드
   useEffect(() => {
-    const barcodes = items.map(i => i.barcode).filter(Boolean);
+    const barcodes = [...new Set(items.map(i => i.barcode).filter(Boolean))];
     if (!barcodes.length) return;
     getImgs(barcodes).then(setImages);
-  // items 가 참조 안정적이지 않으므로 analyses 변경 시마다 재실행
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analyses]);
 
-  const toggle = (barcode) => {
+  const toggle = (key) => {
     setChecked(prev => {
-      const next = { ...prev, [barcode]: !prev[barcode] };
+      const next = { ...prev, [key]: !prev[key] };
       localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
   };
 
   const total = items.length;
-  const done  = items.filter(i => checked[i.barcode]).length;
+  const done  = items.filter(i => checked[i._key]).length;
 
   return (
     <div
@@ -121,9 +120,9 @@ export default function SystemItemsPanel({ analyses, onClose }) {
           ) : (
             items.map(item => (
               <label
-                key={item.barcode}
+                key={item._key}
                 className={`flex gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all select-none
-                  ${checked[item.barcode]
+                  ${checked[item._key]
                     ? 'border-green-400 bg-green-50'
                     : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/30'
                   }`}
@@ -167,8 +166,8 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                 <div className="flex-shrink-0 flex items-center pl-1">
                   <input
                     type="checkbox"
-                    checked={!!checked[item.barcode]}
-                    onChange={() => toggle(item.barcode)}
+                    checked={!!checked[item._key]}
+                    onChange={() => toggle(item._key)}
                     className="w-5 h-5 accent-green-500 cursor-pointer"
                   />
                 </div>
