@@ -275,9 +275,6 @@ export default function Layout({ user, onLogout }) {
             loading={loadingInit}
             search={search}
             onSearchChange={setSearch}
-            toteMemos={toteMemos}
-            onMemoSave={handleMemoSave}
-            onMemoDelete={handleMemoDelete}
           />
         </div>
         {/* 모바일: 선택 있을 때만 표시 / 데스크탑: 항상 표시 */}
@@ -305,6 +302,9 @@ export default function Layout({ user, onLogout }) {
               onStarToggle={handleStarToggle}
               user={user}
               onBack={() => setSelected(null)}
+              memo={selectedAnalysis ? (toteMemos[selectedAnalysis.tote_id] ?? null) : null}
+              onMemoSave={handleMemoSave}
+              onMemoDelete={handleMemoDelete}
             />
           </ErrorBoundary>
         </div>

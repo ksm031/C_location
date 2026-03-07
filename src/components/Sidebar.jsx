@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import ErrorCard from './ErrorCard';
 
-export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, onDeleteAll, loading, search, onSearchChange, toteMemos, onMemoSave, onMemoDelete }) {
+export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, onDeleteAll, loading, search, onSearchChange }) {
   const [sort, setSort] = useState('location'); // 'location' | 'reported_at'
 
   // 검색 필터
@@ -137,9 +137,6 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
             selected={selected === a.id}
             onSelect={() => onSelect(a.id)}
             onDelete={() => onDelete(a.id)}
-            memo={toteMemos?.[a.tote_id] ?? null}
-            onMemoSave={(text) => onMemoSave(a.tote_id, text)}
-            onMemoDelete={() => onMemoDelete(a.tote_id)}
           />
         ))}
       </div>
