@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
-function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange }) {
+function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange, qtyEditable }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -50,7 +50,7 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
         ) : (
           <span className="text-xs text-slate-400 truncate flex-1">{productName}</span>
         )}
-        {nameEditable && (
+        {qtyEditable && (
           <input
             type="number"
             min="1"
@@ -404,6 +404,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
                     onNameChange={handleNameChange}
                     qty={p.isManual ? (qtyOverrides[p.itemKey] ?? null) : null}
                     onQtyChange={handleQtyChange}
+                    qtyEditable={p.isManual}
                   />
                 ))}
                 {uniqueProducts.length === 0 && (
