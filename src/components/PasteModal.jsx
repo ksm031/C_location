@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { parseText } from '../lib/parser';
 import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
@@ -93,7 +93,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [images, setImages]         = useState({});      // { barcode: base64 }
 
   /* 이미지 첨부 대상: 오버리지 등록 항목 + 토트에 전산 남은 항목 */
-  const uniqueProducts = (() => {
+  const uniqueProducts = useMemo(() => {
     if (!parsed?.reports) return [];
     const seen = new Set();
     const list = [];
@@ -106,7 +106,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
       }
     }
     return list;
-  })();
+  }, [parsed]);
 
   /* ── 파싱 ── */
   const handleParse = () => {

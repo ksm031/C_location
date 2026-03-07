@@ -26,55 +26,30 @@ export default function Layout({ user, onLogout }) {
     }
   }, [analyses, loadingInit, selected]);
 
-  // ── 분석 목록 로드 ─────────────────────────────────────────────
-  const loadAnalyses = useCallback(async () => {
+  // ── 전체 데이터 로드 (analyses → checks + stars 병렬) ────────
+  const loadAll = useCallback(async () => {
     const { data, error } = await sb
       .from('analyses')
       .select('*')
       .eq('created_by', user.nickname)
       .order('reported_at', { ascending: false });
-    if (!error && data) setAnalyses(data);
-  }, [user.nickname]);
+    if (error || !data) return;
+    setAnalyses(data);
 
-  // ── 관심 로케이션 로드 ────────────────────────────────────────
-  const loadStars = useCallback(async () => {
-    const { data: ids } = await sb
-      .from('analyses')
-      .select('id')
-      .eq('created_by', user.nickname);
-    if (!ids?.length) { setStars({}); return; }
+    const ids = data.map(r => r.id);
+    if (!ids.length) { setChecks({}); setStars({}); return; }
 
-    const { data, error } = await sb
-      .from('starred_locations')
-      .select('analysis_id, location_code')
-      .in('analysis_id', ids.map(r => r.id))
-      .eq('starred_by', user.nickname);
-    if (!error && data) {
+    const [checksRes, starsRes] = await Promise.all([
+      sb.from('location_checks').select('*').in('analysis_id', ids),
+      sb.from('starred_locations')
+        .select('analysis_id, location_code')
+        .in('analysis_id', ids)
+        .eq('starred_by', user.nickname),
+    ]);
+
+    if (!checksRes.error && checksRes.data) {
       const map = {};
-      for (const row of data) {
-        if (!map[row.analysis_id]) map[row.analysis_id] = {};
-        map[row.analysis_id][row.location_code] = true;
-      }
-      setStars(map);
-    }
-  }, [user.nickname]);
-
-  // ── 체크 결과 로드 ─────────────────────────────────────────────
-  const loadChecks = useCallback(async () => {
-    // 자기 analyses 의 id 목록을 먼저 가져와서 해당 체크만 조회
-    const { data: ids } = await sb
-      .from('analyses')
-      .select('id')
-      .eq('created_by', user.nickname);
-    if (!ids?.length) { setChecks({}); return; }
-
-    const { data, error } = await sb
-      .from('location_checks')
-      .select('*')
-      .in('analysis_id', ids.map(r => r.id));
-    if (!error && data) {
-      const map = {};
-      for (const row of data) {
+      for (const row of checksRes.data) {
         if (!map[row.analysis_id]) map[row.analysis_id] = {};
         map[row.analysis_id][row.location_code] = {
           result:     row.result,
@@ -84,7 +59,16 @@ export default function Layout({ user, onLogout }) {
       }
       setChecks(map);
     }
-  }, []);
+
+    if (!starsRes.error && starsRes.data) {
+      const map = {};
+      for (const row of starsRes.data) {
+        if (!map[row.analysis_id]) map[row.analysis_id] = {};
+        map[row.analysis_id][row.location_code] = true;
+      }
+      setStars(map);
+    }
+  }, [user.nickname]);
 
   // ── 초기 로드 + 매일 오전 8시 자동 초기화 + Realtime 구독 ───────
   useEffect(() => {
@@ -103,37 +87,38 @@ export default function Layout({ user, onLogout }) {
           .maybeSingle();
 
         if (setting?.value !== todayKey) {
+          // 날짜를 먼저 기록해 다른 기기의 중복 실행을 억제
+          await sb.from('app_settings')
+            .upsert({ key: 'daily_reset_date', value: todayKey });
           // starred_locations 먼저 삭제 (CASCADE 미보장 대비, created_at 없으므로 analysis_id 기준)
           await sb.from('starred_locations').delete().not('analysis_id', 'is', null);
           // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
           await sb.from('analyses').delete().gte('created_at', '1970-01-01');
           // 상품 이미지 삭제
           await sb.from('product_images').delete().not('barcode', 'is', null);
-          await sb.from('app_settings')
-            .upsert({ key: 'daily_reset_date', value: todayKey });
         }
       }
 
-      await Promise.all([loadAnalyses(), loadChecks(), loadStars()]);
+      await loadAll();
       setLoadingInit(false);
     };
 
     init();
 
     const ch1 = sb.channel('analyses-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, loadAnalyses)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, loadAll)
       .subscribe();
 
     const ch2 = sb.channel('checks-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'location_checks' }, loadChecks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'location_checks' }, loadAll)
       .subscribe();
 
     const ch3 = sb.channel('stars-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, loadStars)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, loadAll)
       .subscribe();
 
     return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); };
-  }, [loadAnalyses, loadChecks]);
+  }, [loadAll]);
 
   // ── 체크 결과 저장/업데이트 ───────────────────────────────────
   const handleCheck = async (analysisId, locationCode, result) => {
@@ -288,7 +273,6 @@ export default function Layout({ user, onLogout }) {
               onStarToggle={handleStarToggle}
               user={user}
               onBack={() => setSelected(null)}
-              search={search}
             />
           </ErrorBoundary>
         </div>
@@ -299,7 +283,7 @@ export default function Layout({ user, onLogout }) {
         <PasteModal
           user={user}
           onClose={() => setShowPaste(false)}
-          onSaved={() => { setShowPaste(false); loadAnalyses(); }}
+          onSaved={() => { setShowPaste(false); loadAll(); }}
         />
       )}
 
