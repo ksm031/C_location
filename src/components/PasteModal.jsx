@@ -53,11 +53,14 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
         {qtyEditable && (
           <input
             type="number"
-            min="1"
             value={qty ?? ''}
             onChange={e => onQtyChange(itemKey, e.target.value === '' ? null : parseInt(e.target.value))}
-            placeholder="수량"
-            className="w-14 flex-shrink-0 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
+            placeholder="+초과 / -누락"
+            title="양수: 오버리지, 음수: 숏테이지"
+            className={`w-20 flex-shrink-0 text-xs border rounded px-2 py-0.5 focus:outline-none focus:ring-1 text-center
+              ${qty > 0 ? 'border-yellow-300 text-yellow-700 focus:ring-yellow-400' :
+                qty < 0 ? 'border-blue-300 text-blue-700 focus:ring-blue-400' :
+                'border-slate-200 focus:ring-blue-400'}`}
           />
         )}
         {skuId && (
@@ -181,15 +184,23 @@ export default function PasteModal({ user, onClose, onSaved }) {
         .map(([barcode, dataUrl]) => saveImg(barcode, dataUrl))
     );
 
-    const manualItems = manualBarcodes.map((barcode, idx) => {
+    // 수기 입력: 양수 → overage_items, 음수 → tote_remaining_items
+    const manualOverage = [];
+    const manualShortage = [];
+    manualBarcodes.forEach((barcode, idx) => {
       const key = `manual_${idx}`;
       const info = parsedBarcodeMap.get(barcode);
-      return {
+      const qty = qtyOverrides[key] ?? null;
+      const base = {
         sku_id: info?.sku_id ?? null,
         product_name: nameOverrides[key] ?? info?.product_name ?? '',
         barcode,
-        sys_qty: qtyOverrides[key] ?? null,
       };
+      if (qty > 0) {
+        manualOverage.push({ ...base, qty });
+      } else {
+        manualShortage.push({ ...base, sys_qty: qty !== null ? Math.abs(qty) : null });
+      }
     });
 
     let saved = 0, skipped = 0;
@@ -204,8 +215,8 @@ export default function PasteModal({ user, onClose, onSaved }) {
         placed_qty:  r.placed_qty,
         tote_qty:    r.tote_qty,
         locations:            r.locations,
-        overage_items:        r.overage_items ?? [],
-        tote_remaining_items: [...(r.tote_remaining_items ?? []), ...manualItems],
+        overage_items:        [...(r.overage_items ?? []), ...manualOverage],
+        tote_remaining_items: [...(r.tote_remaining_items ?? []), ...manualShortage],
         created_by:           user.nickname,
       });
       if (error) {
