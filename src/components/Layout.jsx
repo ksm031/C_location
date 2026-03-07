@@ -184,8 +184,9 @@ export default function Layout({ user, onLogout }) {
   // ── 삭제 ──────────────────────────────────────────────────────
   const handleDelete = async (analysisId) => {
     if (!window.confirm('이 오류보고를 목록에서 삭제할까요?')) return;
-    await sb.from('analyses').delete().eq('id', analysisId);
+    setAnalyses(prev => prev.filter(a => a.id !== analysisId));
     if (selected === analysisId) setSelected(null);
+    await sb.from('analyses').delete().eq('id', analysisId);
   };
 
   // ── 전체 삭제 (본인 등록분만) ─────────────────────────────────
