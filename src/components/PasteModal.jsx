@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
-function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange }) {
+function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -43,7 +43,7 @@ function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameE
           <input
             type="text"
             value={productName}
-            onChange={e => onNameChange(barcode, e.target.value)}
+            onChange={e => onNameChange(itemKey, e.target.value)}
             placeholder="상품명 입력 (선택)"
             className="flex-1 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
           />
@@ -55,7 +55,7 @@ function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear, nameE
             type="number"
             min="1"
             value={qty ?? ''}
-            onChange={e => onQtyChange(barcode, e.target.value === '' ? null : parseInt(e.target.value))}
+            onChange={e => onQtyChange(itemKey, e.target.value === '' ? null : parseInt(e.target.value))}
             placeholder="수량"
             className="w-14 flex-shrink-0 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
           />
@@ -155,11 +155,11 @@ export default function PasteModal({ user, onClose, onSaved }) {
         }
       }
     }
-    // 수기 입력 바코드는 중복 여부 관계없이 항상 추가 (isManual 플래그)
-    for (const barcode of manualBarcodes) {
+    // 수기 입력 바코드는 중복 여부 관계없이 항상 추가 (인덱스 기반 itemKey)
+    manualBarcodes.forEach((barcode, idx) => {
       const info = parsedBarcodeMap.get(barcode);
-      list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null, isManual: true });
-    }
+      list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null, isManual: true, itemKey: `manual_${idx}` });
+    });
     return list;
   }, [parsed, manualBarcodes, parsedBarcodeMap]);
 
@@ -181,13 +181,14 @@ export default function PasteModal({ user, onClose, onSaved }) {
         .map(([barcode, dataUrl]) => saveImg(barcode, dataUrl))
     );
 
-    const manualItems = manualBarcodes.map(barcode => {
+    const manualItems = manualBarcodes.map((barcode, idx) => {
+      const key = `manual_${idx}`;
       const info = parsedBarcodeMap.get(barcode);
       return {
         sku_id: info?.sku_id ?? null,
-        product_name: nameOverrides[barcode] ?? info?.product_name ?? '',
+        product_name: nameOverrides[key] ?? info?.product_name ?? '',
         barcode,
-        sys_qty: qtyOverrides[barcode] ?? null,
+        sys_qty: qtyOverrides[key] ?? null,
       };
     });
 
@@ -391,16 +392,17 @@ export default function PasteModal({ user, onClose, onSaved }) {
               <div className="space-y-2">
                 {uniqueProducts.map((p, i) => (
                   <ImageZone
-                    key={`${p.barcode}-${i}`}
+                    key={p.itemKey ?? `parsed-${i}`}
                     barcode={p.barcode}
-                    productName={p.isManual ? (nameOverrides[p.barcode] ?? p.product_name) : p.product_name}
+                    itemKey={p.itemKey ?? `parsed-${i}`}
+                    productName={p.isManual ? (nameOverrides[p.itemKey] ?? p.product_name) : p.product_name}
                     skuId={p.sku_id}
                     dataUrl={images[p.barcode] ?? null}
                     onSet={handleSetImg}
                     onClear={handleClearImg}
                     nameEditable={p.isManual && !p.sku_id}
                     onNameChange={handleNameChange}
-                    qty={p.isManual ? (qtyOverrides[p.barcode] ?? null) : null}
+                    qty={p.isManual ? (qtyOverrides[p.itemKey] ?? null) : null}
                     onQtyChange={handleQtyChange}
                   />
                 ))}
