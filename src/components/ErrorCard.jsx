@@ -21,7 +21,11 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   // 대표 상품: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
   const firstItem = issueItems.find(Boolean) ?? null;
-  const uniqueBarcodeCount = new Set(issueItems.map(i => i.barcode)).size;
+  // 외 X종: 초과(overage_items) / 누락(tote_remaining_items) 각각의 종류만 카운트
+  const barcodeCountItems = a.reason === 'OVERAGE'
+    ? (a.overage_items ?? [])
+    : (a.tote_remaining_items ?? []);
+  const uniqueBarcodeCount = new Set(barcodeCountItems.map(i => i.barcode)).size;
 
   // 누락/초과 수량 텍스트
   const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
