@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { parseText } from '../lib/parser';
 import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
@@ -86,14 +86,42 @@ function ImageZone({ barcode, productName, skuId, dataUrl, onSet, onClear }) {
 /* ── 메인 컴포넌트 ────────────────────────────────────── */
 export default function PasteModal({ user, onClose, onSaved }) {
   const [text, setText]             = useState('');
+  const [manualInput, setManualInput] = useState(''); // 수기 바코드 입력
   const [parsed, setParsed]         = useState(null);
   const [saving, setSaving]         = useState(false);
   const [saveResult, setSaveResult] = useState(null);
   const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'image'|'done'
   const [images, setImages]         = useState({});      // { barcode: base64 }
 
-  /* 이미지 첨부 대상: 오버리지 등록 항목 + 토트에 전산 남은 항목 */
-  const uniqueProducts = (() => {
+  /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
+  const manualBarcodes = useMemo(() => {
+    return manualInput
+      .split(',')
+      .map(b => b.replace(/\s/g, ''))
+      .filter(b => b.length > 0);
+  }, [manualInput]);
+
+  /* 파싱 데이터 전체에서 바코드 → { product_name, sku_id } 조회 맵 */
+  const parsedBarcodeMap = useMemo(() => {
+    const map = new Map();
+    if (!parsed?.reports) return map;
+    for (const r of parsed.reports) {
+      const allItems = [
+        ...(r.overage_items ?? []),
+        ...(r.tote_remaining_items ?? []),
+        ...(r.locations ?? []).flatMap(l => l.items ?? []),
+      ];
+      for (const item of allItems) {
+        if (!map.has(item.barcode)) {
+          map.set(item.barcode, { product_name: item.product_name ?? '', sku_id: item.sku_id ?? null });
+        }
+      }
+    }
+    return map;
+  }, [parsed]);
+
+  /* 이미지 첨부 대상: 오버리지 등록 항목 + 토트에 전산 남은 항목 + 수기 입력 바코드 */
+  const uniqueProducts = useMemo(() => {
     if (!parsed?.reports) return [];
     const seen = new Set();
     const list = [];
@@ -105,8 +133,16 @@ export default function PasteModal({ user, onClose, onSaved }) {
         }
       }
     }
+    // 수기 입력 바코드 중 아직 없는 것 추가
+    for (const barcode of manualBarcodes) {
+      if (!seen.has(barcode)) {
+        seen.add(barcode);
+        const info = parsedBarcodeMap.get(barcode);
+        list.push({ barcode, product_name: info?.product_name ?? '', sku_id: info?.sku_id ?? null });
+      }
+    }
     return list;
-  })();
+  }, [parsed, manualBarcodes, parsedBarcodeMap]);
 
   /* ── 파싱 ── */
   const handleParse = () => {
@@ -211,6 +247,23 @@ export default function PasteModal({ user, onClose, onSaved }) {
                            resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[280px]"
               />
               <p className="text-xs text-slate-400 text-right">{text.length.toLocaleString()}자</p>
+              {/* 수기 바코드 입력 */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-500 font-medium">
+                  수기 바코드 입력 <span className="font-normal text-slate-400">(선택 · 쉼표로 구분)</span>
+                </label>
+                <input
+                  type="text"
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  placeholder="예: 8801234567890, 8809876543210"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono
+                             focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {manualBarcodes.length > 0 && (
+                  <p className="text-xs text-blue-600">{manualBarcodes.length}개 바코드 등록됨</p>
+                )}
+              </div>
             </div>
             <div className="px-6 pb-6 flex justify-end gap-2">
               <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">

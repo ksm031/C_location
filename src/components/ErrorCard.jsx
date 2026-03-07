@@ -1,20 +1,4 @@
-const REASON_STYLE = {
-  SHORTAGE: { bg: 'bg-blue-50',   badge: 'bg-blue-100 text-blue-700',     countColor: 'text-blue-600',   label: 'SHORTAGE' },
-  OVERAGE:  { bg: 'bg-yellow-50', badge: 'bg-yellow-100 text-yellow-700', countColor: 'text-yellow-600', label: 'OVERAGE'  },
-};
-
-/** UTC ISO → KST "MM.DD HH:mm:ss" */
-function cardDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${mm}.${dd} ${hh}:${mi}:${ss}`;
-}
+import { cardDate, REASON_STYLE } from '../lib/utils';
 
 /** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */
 function shortLoc(code) {
@@ -71,7 +55,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         </div>
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          className="text-slate-300 hover:text-red-400 transition-colors text-xs flex-shrink-0 ml-1"
+          className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0 ml-1 p-1 text-base leading-none"
           title="삭제"
         >
           ✕
