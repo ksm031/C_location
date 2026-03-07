@@ -55,7 +55,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         </div>
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0 ml-1 p-1.5 text-3xl md:text-xl leading-none"
+          className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0 ml-1 w-8 h-6 flex items-center justify-center text-2xl md:text-xl leading-none"
           title="삭제"
         >
           ✕
