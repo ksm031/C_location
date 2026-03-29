@@ -113,10 +113,11 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [parsed, setParsed]         = useState(null);
   const [saving, setSaving]         = useState(false);
   const [saveResult, setSaveResult] = useState(null);
-  const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'image'|'done'
+  const [step, setStep]             = useState('paste'); // 'paste'|'preview'|'location'|'image'|'done'
   const [images, setImages]         = useState({});      // { barcode: base64 }
   const [nameOverrides, setNameOverrides] = useState({}); // { barcode: string } 수기 바코드 상품명
   const [qtyOverrides, setQtyOverrides]   = useState({}); // { barcode: number } 수기 바코드 수량
+  const [locationInput, setLocationInput] = useState(''); // 수기 진열존 입력
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -167,6 +168,20 @@ export default function PasteModal({ user, onClose, onSaved }) {
     return list;
   }, [parsed, manualBarcodes, parsedBarcodeMap]);
 
+  /* 파싱 결과에 로케이션이 하나도 없는지 여부 */
+  const hasNoLocations = useMemo(() =>
+    !!parsed?.reports?.length && !parsed.reports.some(r => r.locations?.length > 0),
+  [parsed]);
+
+  /* 수기 진열존: 줄바꿈 구분, 공백 무시 */
+  const manualLocations = useMemo(() =>
+    locationInput
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0)
+      .map(code => ({ location_code: code, items: [], total_qty: 0 })),
+  [locationInput]);
+
   /* ── 파싱 ── */
   const handleParse = () => {
     if (!text.trim()) return;
@@ -215,7 +230,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
         sys_qty:     r.sys_qty,
         placed_qty:  r.placed_qty,
         tote_qty:    r.tote_qty,
-        locations:            r.locations,
+        locations:            [...(r.locations ?? []), ...manualLocations],
         overage_items:        [...(r.overage_items ?? []), ...manualOverage],
         tote_remaining_items: [...(r.tote_remaining_items ?? []), ...manualShortage],
         created_by:           user.nickname,
@@ -242,6 +257,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setImages({});
     setNameOverrides({});
     setQtyOverrides({});
+    setLocationInput('');
   };
 
   const handleSetImg = useCallback((barcode, dataUrl) => {
@@ -270,10 +286,11 @@ export default function PasteModal({ user, onClose, onSaved }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h2 className="font-bold text-slate-800">
             {step === 'paste'   && '오류보고 / 입고 토트 붙여넣기'}
-            {step === 'preview' && (parsed?.pageType === 'tote_detail'
+            {step === 'preview'  && (parsed?.pageType === 'tote_detail'
               ? '입고 토트 상세 확인'
               : `파싱 결과 확인 (${parsed?.reports?.length ?? 0}건)`)}
-            {step === 'image'   && `상품 이미지 첨부 (${uniqueProducts.length}종)`}
+            {step === 'location' && '진열존 입력'}
+            {step === 'image'    && `상품 이미지 첨부 (${uniqueProducts.length}종)`}
             {step === 'done'    && '저장 완료'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg transition-colors">✕</button>
@@ -399,7 +416,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
                 ← 다시 붙여넣기
               </button>
               <button
-                onClick={() => setStep('image')}
+                onClick={() => setStep(hasNoLocations ? 'location' : 'image')}
                 disabled={parsed.reports.length === 0}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
               >
@@ -409,7 +426,42 @@ export default function PasteModal({ user, onClose, onSaved }) {
           </>
         )}
 
-        {/* ── STEP 3: 이미지 첨부 ── */}
+        {/* ── STEP 3: 진열존 수기 입력 (로케이션 없을 때만) ── */}
+        {step === 'location' && (
+          <>
+            <div className="flex-1 overflow-hidden p-6 flex flex-col gap-3">
+              <p className="text-sm text-slate-600">
+                파싱된 진열 로케이션이 없습니다. 진열존을 직접 입력해 주세요.
+                <br />
+                <span className="text-xs text-slate-400">로케이션 코드를 한 줄에 하나씩 입력하세요.</span>
+              </p>
+              <textarea
+                value={locationInput}
+                onChange={e => setLocationInput(e.target.value)}
+                autoFocus
+                placeholder={"66-42HV5-6-404\n66-42HV5-6-303\n66-42HV5-6-304"}
+                className="flex-1 w-full border border-slate-200 rounded-xl p-4 text-sm font-mono
+                           resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[200px]"
+              />
+              {manualLocations.length > 0 && (
+                <p className="text-xs text-blue-600">{manualLocations.length}개 로케이션 입력됨</p>
+              )}
+            </div>
+            <div className="px-6 pb-6 flex justify-between">
+              <button onClick={() => setStep('preview')} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                ← 뒤로
+              </button>
+              <button
+                onClick={() => setStep('image')}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                다음 →
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── STEP 4: 이미지 첨부 ── */}
         {step === 'image' && (
           <>
             <div className="flex-1 overflow-y-auto p-6">
@@ -440,7 +492,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
               </div>
             </div>
             <div className="px-6 pb-6 flex justify-between items-center">
-              <button onClick={() => setStep('preview')} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+              <button onClick={() => setStep(hasNoLocations ? 'location' : 'preview')} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
                 ← 뒤로
               </button>
               <div className="flex items-center gap-3">
@@ -459,7 +511,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
           </>
         )}
 
-        {/* ── STEP 4: 완료 ── */}
+        {/* ── STEP 5: 완료 ── */}
         {step === 'done' && saveResult && (
           <div className="flex-1 flex flex-col items-center justify-center p-10 gap-4">
             <div className="text-5xl">✅</div>
