@@ -210,9 +210,9 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                     {item.barcode.slice(0, -3)}
                     <span className="font-bold">{item.barcode.slice(-3)}</span>
                   </div>
-                  {item.sys_qty != null && (
+                  {(item.sys_qty != null || item.qty != null) && (
                     <div className="text-[11px] text-blue-500 font-medium mb-1">
-                      전산수량 {item.sys_qty}개
+                      수량 {item.sys_qty ?? item.qty}개
                     </div>
                   )}
                   <div className="overflow-hidden">
