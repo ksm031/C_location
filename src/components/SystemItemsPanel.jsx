@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import JsBarcode from 'jsbarcode';
-import { getImgs } from '../lib/imageUtils';
+import { getImgs, saveImg, compressImage } from '../lib/imageUtils';
 
 function Barcode128({ value }) {
   const svgRef = useRef(null);
@@ -50,6 +50,37 @@ export default function SystemItemsPanel({ analyses, onClose }) {
     getImgs(barcodes).then(setImages);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analyses]);
+
+  const fileInputRef = useRef(null);
+  const uploadTargetRef = useRef(null); // barcode currently targeted for upload
+
+  const handleImageFile = useCallback(async (barcode, file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    try {
+      const dataUrl = await compressImage(file);
+      await saveImg(barcode, dataUrl);
+      setImages(prev => ({ ...prev, [barcode]: dataUrl }));
+    } catch (e) {
+      console.error('이미지 저장 실패', e);
+    }
+  }, []);
+
+  // 전역 paste 이벤트 (패널이 열려있는 동안)
+  useEffect(() => {
+    const onPaste = (e) => {
+      const barcode = uploadTargetRef.current;
+      if (!barcode) return;
+      const file = [...(e.clipboardData?.files ?? [])].find(f => f.type.startsWith('image/'));
+      if (file) { e.preventDefault(); handleImageFile(barcode, file); }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [handleImageFile]);
+
+  const openFilePicker = (barcode) => {
+    uploadTargetRef.current = barcode;
+    fileInputRef.current.click();
+  };
 
   const toggle = (key) => {
     setChecked(prev => {
@@ -128,19 +159,46 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                   }`}
               >
                 {/* 상품 이미지 */}
-                <div
-                  className="w-[72px] h-[72px] flex-shrink-0 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center cursor-zoom-in"
-                  onClick={(e) => {
-                    if (!images[item.barcode]) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setZoomImg(images[item.barcode]);
-                  }}
-                >
-                  {images[item.barcode]
-                    ? <img src={images[item.barcode]} alt="" className="w-full h-full object-cover" />
-                    : <span className="text-2xl opacity-40">📷</span>
-                  }
+                <div className="w-[72px] flex-shrink-0 flex flex-col gap-1">
+                  <div
+                    className={`w-[72px] h-[72px] rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center relative group
+                      ${images[item.barcode] ? 'cursor-zoom-in' : 'cursor-pointer border-2 border-dashed border-slate-300 hover:border-blue-400'}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (images[item.barcode]) {
+                        setZoomImg(images[item.barcode]);
+                      } else {
+                        openFilePicker(item.barcode);
+                      }
+                    }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+                      if (file) handleImageFile(item.barcode, file);
+                    }}
+                  >
+                    {images[item.barcode] ? (
+                      <>
+                        <img src={images[item.barcode]} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                          <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-medium">변경</span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-2xl opacity-30">📷</span>
+                    )}
+                  </div>
+                  {images[item.barcode] && (
+                    <button
+                      className="w-full text-[10px] text-slate-400 hover:text-blue-500 text-center leading-none py-0.5"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); openFilePicker(item.barcode); }}
+                    >
+                      변경
+                    </button>
+                  )}
                 </div>
 
                 {/* 텍스트 + 바코드 이미지 */}
@@ -175,6 +233,19 @@ export default function SystemItemsPanel({ analyses, onClose }) {
             ))
           )}
         </div>
+
+        {/* 숨겨진 파일 입력 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && uploadTargetRef.current) handleImageFile(uploadTargetRef.current, file);
+            e.target.value = '';
+          }}
+        />
 
         {/* 하단 요약 */}
         {total > 0 && (
