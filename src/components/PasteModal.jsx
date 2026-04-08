@@ -70,15 +70,6 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
                 'border-slate-200 focus:ring-blue-400'}`}
           />
         )}
-        <a
-          href={`https://www.google.com/search?q=${encodeURIComponent(productName || barcode)}&tbm=isch`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-shrink-0 text-xs text-slate-400 hover:text-blue-500 underline"
-          onClick={e => e.stopPropagation()}
-        >
-          이미지↗
-        </a>
         {skuId && (
           <a
             href={`https://inventory.coupang.com/sku/${skuId}`}
