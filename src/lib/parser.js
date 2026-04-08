@@ -83,8 +83,10 @@ function parseSectionLines(lines) {
   const displayRows    = [];
   let lastDisplayRow   = null;
 
+  let inToteInbound        = false; // 토트 내역 (입고된 전체 상품 목록)
   let inToteRemaining      = false;
   let inOverage            = false;
+  const stockItems         = []; // 토트 내역 items → parsedBarcodeMap 매칭용
   const toteRemainingItems = [];
   const overageItems       = [];
 
@@ -111,8 +113,12 @@ function parseSectionLines(lines) {
     }
 
     // ② 섹션 전환 감지
+    if (line.startsWith('토트 내역')) {
+      inToteInbound = true;
+      continue;
+    }
     if (line === '진열 내역') {
-      inDisplay = true; passedExcelBtn = false;
+      inToteInbound = false; inDisplay = true; passedExcelBtn = false;
       continue;
     }
     if (line === '토트에 남은 전산재고') {
@@ -128,7 +134,15 @@ function parseSectionLines(lines) {
       continue;
     }
 
-    // ③ 진열 내역 섹션 처리
+    // ③ 토트 내역 섹션 처리 (입고된 전체 상품 목록 → 바코드 매칭용)
+    if (inToteInbound) {
+      if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
+      const m = /^(\d+)\t([^\t]+)\t(\S+)\t/.exec(line);
+      if (m) stockItems.push({ sku_id: m[1], product_name: m[2], barcode: m[3] });
+      continue;
+    }
+
+    // ④ 진열 내역 섹션 처리
     if (inDisplay) {
       if (!passedExcelBtn) {
         if (line.startsWith('엑셀 파일 다운로드')) passedExcelBtn = true;
@@ -158,7 +172,7 @@ function parseSectionLines(lines) {
       continue;
     }
 
-    // ④ 토트에 남은 전산재고 섹션 처리
+    // ⑤ 토트에 남은 전산재고 섹션 처리
     if (inToteRemaining) {
       if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
       const m = TOTE_REM_ROW.exec(line);
@@ -170,7 +184,7 @@ function parseSectionLines(lines) {
       continue;
     }
 
-    // ⑤ 오버리지 등록 섹션 처리
+    // ⑥ 오버리지 등록 섹션 처리
     if (inOverage) {
       if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
       const m = OVERAGE_ITEM_ROW.exec(line);
@@ -186,7 +200,7 @@ function parseSectionLines(lines) {
 
   if (!report) return null;
 
-  // ⑥ 진열 내역을 로케이션별로 그룹핑
+  // ⑦ 진열 내역을 로케이션별로 그룹핑
   const locationMap = {};
   for (const row of displayRows) {
     if (!locationMap[row.location_code]) {
@@ -202,6 +216,7 @@ function parseSectionLines(lines) {
   report.locations            = Object.values(locationMap).sort((a, b) =>
     a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
   );
+  report.stock_items          = stockItems;        // 토트 내역 (바코드 매칭용, 저장 안 함)
   report.tote_remaining_items = toteRemainingItems;
   report.overage_items        = overageItems;
 

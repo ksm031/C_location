@@ -249,6 +249,11 @@ export default function Layout({ user, onLogout }) {
           >
             <span>+</span> 붙여넣기
           </button>
+          <span className="text-[10px] text-slate-300 hidden sm:inline font-mono">
+            {new Date(__BUILD_TIME__).toLocaleDateString('ko-KR', { month:'2-digit', day:'2-digit' })}
+            {' '}
+            {new Date(__BUILD_TIME__).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', hour12: false })}
+          </span>
           <span className="hidden sm:inline text-sm text-slate-500">
             <span className="font-medium text-slate-700">{user.nickname}</span>
           </span>
