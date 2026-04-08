@@ -324,46 +324,38 @@ export function parseText(rawText) {
     .map(l => l.trim())
     .filter(l => l.length > 0);
 
-  // 입고 토트 상세 페이지 감지 (헤더 행 "토트바코드\t토트목적지" 존재)
-  if (lines.some(l => l.startsWith('토트바코드\t토트목적지'))) {
+  const reports = [];
+  const errors  = [];
+
+  // 입고 토트 상세 감지 - 오류보고와 공존 가능 (둘 다 파싱)
+  const hasToteDetail = lines.some(l => l.startsWith('토트바코드\t토트목적지'));
+  if (hasToteDetail) {
     const tote = parseToteDetail(lines);
-    if (tote) return { reports: [tote], errors: [], pageType: 'tote_detail' };
-    return { reports: [], errors: ['입고 토트 상세 파싱 실패'], pageType: 'tote_detail' };
+    if (tote) reports.push(tote);
+    else errors.push('입고 토트 상세 파싱 실패');
   }
 
   // '진열 오류 내역' 을 각 보고서의 시작점으로 사용
   const sectionStarts = [];
-  lines.forEach((l, i) => {
-    if (l === '진열 오류 내역') sectionStarts.push(i);
-  });
+  lines.forEach((l, i) => { if (l === '진열 오류 내역') sectionStarts.push(i); });
 
-  // 섹션 마커가 없으면 전체 텍스트로 단일 파싱 시도
-  if (sectionStarts.length === 0) {
-    const report = parseSectionLines(lines);
-    if (report) return { reports: [report], errors: [] };
-    return {
-      reports: [],
-      errors: ['오류보고 데이터를 찾을 수 없습니다. 올바른 페이지에서 복사했는지 확인하세요.'],
-    };
-  }
-
-  const reports = [];
-  const errors = [];
-
-  for (let i = 0; i < sectionStarts.length; i++) {
-    const start = sectionStarts[i];
-    const end = i + 1 < sectionStarts.length ? sectionStarts[i + 1] : lines.length;
-    const sectionLines = lines.slice(start, end);
-
-    const report = parseSectionLines(sectionLines);
-    if (report) {
-      reports.push(report);
-    } else {
-      errors.push(`섹션 ${i + 1}: 파싱 실패 (데이터 형식 확인 필요)`);
+  if (sectionStarts.length > 0) {
+    for (let i = 0; i < sectionStarts.length; i++) {
+      const start = sectionStarts[i];
+      const end = i + 1 < sectionStarts.length ? sectionStarts[i + 1] : lines.length;
+      const report = parseSectionLines(lines.slice(start, end));
+      if (report) reports.push(report);
+      else errors.push(`섹션 ${i + 1}: 파싱 실패 (데이터 형식 확인 필요)`);
     }
+  } else if (!hasToteDetail) {
+    // 마커 없고 토트 상세도 없으면 전체를 단일 파싱 시도
+    const report = parseSectionLines(lines);
+    if (report) reports.push(report);
+    else errors.push('오류보고 데이터를 찾을 수 없습니다. 올바른 페이지에서 복사했는지 확인하세요.');
   }
 
-  return { reports, errors };
+  const pageType = hasToteDetail && sectionStarts.length === 0 ? 'tote_detail' : undefined;
+  return { reports, errors, pageType };
 }
 
 /**

@@ -4,7 +4,7 @@ import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
-function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange, qtyEditable }) {
+function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange, qtyEditable, autoMatched }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -40,15 +40,22 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
           {barcode.slice(0, -3)}<span className="font-bold">{barcode.slice(-3)}</span>
         </span>
         {nameEditable ? (
-          <input
-            type="text"
-            value={productName}
-            onChange={e => onNameChange(itemKey, e.target.value)}
-            placeholder="상품명 입력 (선택)"
-            className="flex-1 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
-          />
+          <div className="flex-1 flex items-center gap-1 min-w-0">
+            <input
+              type="text"
+              value={productName}
+              onChange={e => onNameChange(itemKey, e.target.value)}
+              placeholder="상품명 입력 (선택)"
+              className="flex-1 text-xs border border-slate-200 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+            />
+            {autoMatched && (
+              <span className="text-[10px] text-green-600 font-medium px-1 py-0.5 bg-green-50 border border-green-200 rounded flex-shrink-0">
+                ✓ 자동
+              </span>
+            )}
+          </div>
         ) : (
-          <span className="text-xs text-slate-400 truncate flex-1">{productName}</span>
+          <span className="text-xs text-slate-500 truncate flex-1">{productName}</span>
         )}
         {qtyEditable && (
           <input
@@ -71,7 +78,7 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
             className="flex-shrink-0 text-xs text-blue-500 hover:text-blue-700 underline"
             onClick={e => e.stopPropagation()}
           >
-            상품페이지 ↗
+            상품페이지↗
           </a>
         )}
       </div>
@@ -484,6 +491,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
                     qty={p.isManual ? (qtyOverrides[p.itemKey] ?? null) : null}
                     onQtyChange={handleQtyChange}
                     qtyEditable={p.isManual}
+                    autoMatched={p.isManual && !!parsedBarcodeMap.get(p.barcode)}
                   />
                 ))}
                 {uniqueProducts.length === 0 && (
