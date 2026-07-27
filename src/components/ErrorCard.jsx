@@ -31,11 +31,12 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   const mixed = (a.overage_items ?? []).length > 0 && (a.tote_remaining_items ?? []).length > 0;
   const mixedLabel = a.reason === 'OVERAGE' ? '+누락' : '+초과';
 
-  // 누락/초과 수량 텍스트
+  // 누락/초과 수량 텍스트 (여러 종이면 '총'을 붙여 합계임을 명시)
   const overageQty = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
+  const sum = uniqueBarcodeCount > 1 ? '총 ' : '';
   const diffLabel = a.reason === 'SHORTAGE'
-    ? `누락 ${a.sys_qty}개`
-    : `초과 ${overageQty}개`;
+    ? `누락 ${sum}${a.sys_qty}개`
+    : `초과 ${sum}${overageQty}개`;
 
   // 대표 로케이션 (축약 + 중복 제거, 최대 3개)
   const locCodes  = [...new Set(locs.map(l => shortLoc(l.location_code)))];
@@ -108,7 +109,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
                 <span className="font-bold">{firstItem.barcode.slice(-3)}</span>
               </span>
               {uniqueBarcodeCount > 1 && (
-                <span className="text-slate-400 flex-shrink-0">外 {uniqueBarcodeCount - 1}종</span>
+                <span className="text-slate-400 flex-shrink-0">외 {uniqueBarcodeCount - 1}종</span>
               )}
               <span className={`flex-shrink-0 font-medium ${style.countColor}`}>{diffLabel}</span>
             </div>
