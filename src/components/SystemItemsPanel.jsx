@@ -31,13 +31,18 @@ export default function SystemItemsPanel({ analyses, onClose }) {
   const [images, setImages]     = useState({});
   const [zoomImg, setZoomImg]   = useState(null);
 
-  // 전체 analyses 에서 overage_items + tote_remaining_items 수집 (중복 제거 없음, 고유 _key 부여)
+  // 전체 analyses 에서 overage_items + tote_remaining_items 수집
+  // (중복 제거 없음 · _type 으로 초과/누락 구분 · 고유 _key 부여)
   const items = (() => {
     const list = [];
     for (const a of analyses) {
-      for (const item of [...(a.overage_items || []), ...(a.tote_remaining_items || [])]) {
+      for (const item of a.overage_items || []) {
         if (!item.barcode) continue;
-        list.push({ ...item });
+        list.push({ ...item, _type: 'overage', _qty: item.qty ?? item.sys_qty ?? null });
+      }
+      for (const item of a.tote_remaining_items || []) {
+        if (!item.barcode) continue;
+        list.push({ ...item, _type: 'shortage', _qty: item.sys_qty ?? item.qty ?? null });
       }
     }
     return list.map((item, i) => ({ ...item, _key: `${item.barcode}_${i}` }));
@@ -210,11 +215,16 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                     {item.barcode.slice(0, -3)}
                     <span className="font-bold">{item.barcode.slice(-3)}</span>
                   </div>
-                  {(item.sys_qty != null || item.qty != null) && (
-                    <div className="text-[11px] text-blue-500 font-medium mb-1">
-                      수량 {item.sys_qty ?? item.qty}개
-                    </div>
-                  )}
+                  <div className="mb-1">
+                    <span className={`inline-block text-[11px] px-1.5 py-0.5 rounded font-bold ${
+                      item._type === 'overage'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {item._type === 'overage' ? '초과' : '누락'}
+                      {item._qty != null && ` ${item._qty}개`}
+                    </span>
+                  </div>
                   <div className="overflow-hidden">
                     <Barcode128 value={item.barcode} />
                   </div>
