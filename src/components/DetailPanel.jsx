@@ -80,10 +80,11 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const restQty  = uniqueProducts.slice(1).reduce((s, i) => s + itemQty(i), 0);
   const multiKind = uniqueProducts.length > 1;
 
-  // 양쪽 다 있으면 둘 다 표시
+  // 양쪽 다 있으면 둘 다 표시 (여러 종이면 '총'을 붙여 합계임을 명시)
+  const sum = multiKind ? '총 ' : '';
   const diffParts = [];
-  if (overageQty  > 0) diffParts.push({ text: `초과 ${overageQty}개`,  cls: 'text-yellow-600' });
-  if (shortageQty > 0) diffParts.push({ text: `누락 ${shortageQty}개`, cls: 'text-blue-600' });
+  if (overageQty  > 0) diffParts.push({ text: `초과 ${sum}${overageQty}개`,  cls: 'text-yellow-600' });
+  if (shortageQty > 0) diffParts.push({ text: `누락 ${sum}${shortageQty}개`, cls: 'text-blue-600' });
   if (diffParts.length === 0) {
     diffParts.push(a.reason === 'SHORTAGE'
       ? { text: '누락', cls: 'text-blue-600' }
@@ -232,7 +233,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
               )}
               {multiKind && (
                 <span className="text-slate-400 flex-shrink-0">
-                  外 {uniqueProducts.length - 1}종{restQty > 0 && ` ${restQty}개`}
+                  외 {uniqueProducts.length - 1}종{restQty > 0 && ` ${restQty}개`}
                 </span>
               )}
               <span className="text-slate-400 truncate">{uniqueProducts[0].product_name}</span>
