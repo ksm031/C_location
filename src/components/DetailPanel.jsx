@@ -169,13 +169,13 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           )}
         </div>
 
-        {/* 행 3: 신고시간 · 입고자 · 진열자 · 전산 + 메모 */}
+        {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 + 메모 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
           <span>{cardDate(a.reported_at)}</span>
-          <span>입고자 {a.inbound_worker ?? '-'}</span>
           <span className={multiWorker ? 'text-amber-700 font-medium' : undefined}>
             진열자 {workerLabel}
           </span>
+          <span>입고자 {a.inbound_worker ?? '-'}</span>
           <span>전산 {a.sys_qty}개</span>
           <button
             onClick={() => setMemoOpen(true)}
