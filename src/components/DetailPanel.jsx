@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import LocationAccordion from './LocationAccordion';
 import SystemItemsPanel from './SystemItemsPanel';
 import ToteMemoModal from './ToteMemoModal';
+import { getImgs } from '../lib/imageUtils';
 import { cardDate, REASON_STYLE } from '../lib/utils';
 
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, memo, onMemoSave, onMemoDelete }) {
@@ -9,11 +10,24 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const [filterBy, setFilter]     = useState('all');       // 'all' | 'unchecked' | 'found' | 'not_found'
   const [showSysItems, setShowSysItems] = useState(false);
   const [memoOpen, setMemoOpen]   = useState(false);
+  const [thumbs, setThumbs]       = useState({}); // { barcode: dataUrl }
 
   // analysis 바뀌면 패널 닫기
   useEffect(() => {
     setShowSysItems(false);
   }, [analysis?.id]);
+
+  // 전산 상품 썸네일 로드
+  useEffect(() => {
+    setThumbs({});
+    if (!analysis) return;
+    const barcodes = [...new Set(
+      [...(analysis.overage_items ?? []), ...(analysis.tote_remaining_items ?? [])]
+        .map(i => i.barcode).filter(Boolean)
+    )];
+    if (!barcodes.length) return;
+    getImgs(barcodes).then(setThumbs);
+  }, [analysis]);
 
   if (!analysis) {
     return (
@@ -45,8 +59,23 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   });
   const targetBarcodes = uniqueProducts.map(p => p.barcode);
   const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
-  const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
-  const diffQty = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${overageQty}개`;
+
+  // 초과/누락 수량: 항목 합계 우선, 누락은 항목이 없으면 보고서 전산수량으로 대체
+  const overageQty  = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
+  const remainQty   = (a.tote_remaining_items ?? []).reduce((s, i) => s + (i.sys_qty ?? 0), 0);
+  const shortageQty = remainQty > 0
+    ? remainQty
+    : (a.reason === 'SHORTAGE' || hasBothIssues ? (a.sys_qty ?? 0) : 0);
+
+  // 양쪽 다 있으면 둘 다 표시
+  const diffParts = [];
+  if (overageQty  > 0) diffParts.push({ text: `초과 ${overageQty}개`,  cls: 'text-yellow-600' });
+  if (shortageQty > 0) diffParts.push({ text: `누락 ${shortageQty}개`, cls: 'text-blue-600' });
+  if (diffParts.length === 0) {
+    diffParts.push(a.reason === 'SHORTAGE'
+      ? { text: '누락', cls: 'text-blue-600' }
+      : { text: '초과', cls: 'text-yellow-600' });
+  }
 
   // 정렬
   const sortedLocs = useMemo(() => {
@@ -151,9 +180,24 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         {uniqueProducts.length > 0 && (
           <div className="mt-1">
             {/* 요약 줄 (항상 표시) */}
-            <div className="flex items-baseline gap-2 text-xs min-w-0">
-              <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
-                {diffQty}
+            <div className="flex items-center gap-2 text-xs min-w-0">
+              {thumbs[uniqueProducts[0].barcode] && (
+                <button
+                  onClick={() => setShowSysItems(true)}
+                  title={uniqueProducts[0].product_name}
+                  className="flex-shrink-0 w-7 h-7 rounded-md overflow-hidden border border-slate-200 bg-slate-50
+                             hover:border-blue-300 transition-colors"
+                >
+                  <img src={thumbs[uniqueProducts[0].barcode]} alt="" className="w-full h-full object-cover" />
+                </button>
+              )}
+              <span className="flex-shrink-0 flex items-center gap-1 font-semibold">
+                {diffParts.map((p, i) => (
+                  <span key={p.text} className={p.cls}>
+                    {i > 0 && <span className="text-slate-300 font-normal mr-1">·</span>}
+                    {p.text}
+                  </span>
+                ))}
               </span>
               <span className="font-mono text-slate-600 flex-shrink-0">
                 {uniqueProducts[0].barcode.slice(0, -3)}
