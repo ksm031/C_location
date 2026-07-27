@@ -45,10 +45,12 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   return (
     <div
       onClick={onSelect}
-      className={`w-full rounded-xl border cursor-pointer transition-all select-none p-3 space-y-1.5 overflow-hidden
+      className={`w-full rounded-xl border-y border-r border-l-4 cursor-pointer transition-all
+                  select-none p-3 space-y-1.5 overflow-hidden
         ${selected
-          ? 'border-green-400 bg-green-50 shadow-sm'
-          : `border-slate-200 ${style.bg} hover:border-slate-300 hover:shadow-sm`
+          ? 'border-y-green-400 border-r-green-400 border-l-green-500 bg-green-50 shadow-sm'
+          : `border-y-slate-200 border-r-slate-200 ${style.accent} bg-white
+             hover:border-y-slate-300 hover:border-r-slate-300 hover:shadow-sm`
         }`}
     >
       {/* 행 1: 토트번호 + 배지 + 삭제 */}

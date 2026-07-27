@@ -13,13 +13,13 @@ export function cardDate(dateStr) {
 
 export const REASON_STYLE = {
   SHORTAGE: {
-    bg:         'bg-blue-50',
+    accent:     'border-l-blue-400',   // 카드 좌측 4px 유형 표시
     badge:      'bg-blue-100 text-blue-700',
     countColor: 'text-blue-600',
     label:      'SHORTAGE',
   },
   OVERAGE: {
-    bg:         'bg-yellow-50',
+    accent:     'border-l-yellow-400',
     badge:      'bg-yellow-100 text-yellow-700',
     countColor: 'text-yellow-600',
     label:      'OVERAGE',

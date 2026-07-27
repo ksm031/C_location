@@ -129,36 +129,39 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           {a.tote_id ?? '-'}
         </div>
 
-        {/* 행 2: 숏/오버 배지 + 완료여부 */}
-        <div className="flex items-center gap-2 md:mt-1.5">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).badge}`}>
+        {/* 행 2: 유형(pill) + 진행 상태(텍스트) + 경고(pill) */}
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 md:mt-1.5 text-xs">
+          {/* 위계 1: 유형 — 유일한 기본 pill */}
+          <span className={`px-2 py-0.5 rounded-full font-medium ${(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).badge}`}>
             {a.reason}
           </span>
-          {hasBothIssues && (
-            <span className="text-xs text-slate-500 font-medium">+ SHORTAGE</span>
-          )}
-          {completed ? (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-              ✓ 완료
-            </span>
-          ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
-              {done}/{locs.length} 진행중
-            </span>
-          )}
-          {foundCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
-              발견 {foundCount}
-            </span>
-          )}
-          {notFoundCount > 0 && foundCount === 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">
-              없음
-            </span>
-          )}
+          {hasBothIssues && <span className="text-slate-400">+SHORTAGE</span>}
+
+          {/* 위계 2: 진행 상태 — pill 대신 점 구분 텍스트 */}
+          <span className="flex items-center gap-1.5 text-slate-400">
+            <span aria-hidden="true">·</span>
+            {completed
+              ? <span className="text-green-600 font-semibold">완료</span>
+              : <span className="text-slate-600 font-medium">{done}/{locs.length}</span>
+            }
+            {foundCount > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-green-600">발견 {foundCount}</span>
+              </>
+            )}
+            {notFoundCount > 0 && foundCount === 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-red-500">없음 {notFoundCount}</span>
+              </>
+            )}
+          </span>
+
+          {/* 위계 1: 경고 — 눈에 띄어야 하므로 pill 유지 */}
           {multiWorker && (
             <span
-              className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold"
+              className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold"
               title={`진열자 ${displayWorkers.join(', ')}`}
             >
               ⚠ 진열자 {displayWorkers.length}명
