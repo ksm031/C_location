@@ -6,7 +6,7 @@ function shortLoc(code) {
   return parts.slice(0, 2).join('-');
 }
 
-export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete }) {
+export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete, thumb }) {
   const a     = analysis;
   const locs  = a.locations ?? [];
   const total = locs.length;
@@ -84,22 +84,32 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
       {/* 행 5: 바코드 + 누락/초과 / 상품명 */}
       {firstItem ? (
-        <div className="text-xs space-y-0.5 min-w-0 overflow-hidden">
-          <div className="flex items-baseline gap-1 min-w-0 overflow-hidden">
-            <span className="font-mono text-slate-600 flex-shrink-0">
-              {firstItem.barcode.slice(0, -3)}
-              <span className="font-bold">{firstItem.barcode.slice(-3)}</span>
-            </span>
-            {uniqueBarcodeCount > 1 && (
-              <span className="text-slate-400 flex-shrink-0">外 {uniqueBarcodeCount - 1}종</span>
-            )}
-            <span className={`flex-shrink-0 font-medium ${style.countColor}`}>{diffLabel}</span>
+        <div className="flex items-start gap-2 text-xs min-w-0 overflow-hidden">
+          <div className="flex-1 space-y-0.5 min-w-0 overflow-hidden">
+            <div className="flex items-baseline gap-1 min-w-0 overflow-hidden">
+              <span className="font-mono text-slate-600 flex-shrink-0">
+                {firstItem.barcode.slice(0, -3)}
+                <span className="font-bold">{firstItem.barcode.slice(-3)}</span>
+              </span>
+              {uniqueBarcodeCount > 1 && (
+                <span className="text-slate-400 flex-shrink-0">外 {uniqueBarcodeCount - 1}종</span>
+              )}
+              <span className={`flex-shrink-0 font-medium ${style.countColor}`}>{diffLabel}</span>
+            </div>
+            <div className="text-slate-400">
+              {firstItem.product_name.length > 22
+                ? firstItem.product_name.slice(0, 22) + '…'
+                : firstItem.product_name}
+            </div>
           </div>
-          <div className="text-slate-400">
-            {firstItem.product_name.length > 22
-              ? firstItem.product_name.slice(0, 22) + '…'
-              : firstItem.product_name}
-          </div>
+          {thumb && (
+            <img
+              src={thumb}
+              alt=""
+              loading="lazy"
+              className="flex-shrink-0 w-9 h-9 rounded-md object-cover border border-slate-200 bg-white"
+            />
+          )}
         </div>
       ) : (
         <div className="text-xs text-slate-400">{diffLabel}</div>

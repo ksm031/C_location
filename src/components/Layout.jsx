@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { sb } from '../lib/supabase';
+import { clearImgCache } from '../lib/imageUtils';
 import Sidebar from './Sidebar';
 import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
@@ -106,6 +107,7 @@ export default function Layout({ user, onLogout }) {
           await sb.from('tote_memos').delete().not('tote_id', 'is', null);
           // 상품 이미지 삭제
           await sb.from('product_images').delete().not('barcode', 'is', null);
+          clearImgCache();
         }
       }
 

@@ -1,8 +1,30 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ErrorCard from './ErrorCard';
+import { getImgs } from '../lib/imageUtils';
+
+/** 카드 대표 상품 바코드 (초과/누락 항목 중 첫 번째) */
+function repBarcode(a) {
+  const item = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])]
+    .find(i => i?.barcode);
+  return item?.barcode ?? null;
+}
 
 export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, onDeleteAll, loading, search, onSearchChange }) {
   const [sort, setSort] = useState('location'); // 'location' | 'reported_at'
+  const [thumbs, setThumbs] = useState({});     // { barcode: dataUrl }
+
+  // 대표 상품 썸네일: 전 카드 바코드를 모아 한 번에 조회 (캐시 사용)
+  const repBarcodes = useMemo(
+    () => [...new Set(analyses.map(repBarcode).filter(Boolean))],
+    [analyses]
+  );
+
+  useEffect(() => {
+    if (!repBarcodes.length) return;
+    let alive = true;
+    getImgs(repBarcodes).then(map => { if (alive) setThumbs(prev => ({ ...prev, ...map })); });
+    return () => { alive = false; };
+  }, [repBarcodes]);
 
   // 검색 필터
   const filtered = useMemo(() => {
@@ -137,6 +159,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
             selected={selected === a.id}
             onSelect={() => onSelect(a.id)}
             onDelete={() => onDelete(a.id)}
+            thumb={thumbs[repBarcode(a)] ?? null}
           />
         ))}
       </div>
