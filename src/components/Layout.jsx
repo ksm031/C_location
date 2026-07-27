@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { sb } from '../lib/supabase';
 import { clearImgCache } from '../lib/imageUtils';
+
+/** 배포 빌드 시각 "MM.DD HH:mm" (vite define 으로 주입) */
+const BUILD_LABEL = (() => {
+  const d = new Date(__BUILD_TIME__);
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+})();
 import Sidebar from './Sidebar';
 import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
@@ -251,20 +258,21 @@ export default function Layout({ user, onLogout }) {
           >
             <span>+</span> 붙여넣기
           </button>
-          <span className="text-[10px] text-slate-300 hidden sm:inline font-mono">
-            {new Date(__BUILD_TIME__).toLocaleDateString('ko-KR', { month:'2-digit', day:'2-digit' })}
-            {' '}
-            {new Date(__BUILD_TIME__).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', hour12: false })}
-          </span>
           <span className="hidden sm:inline text-sm text-slate-500">
             <span className="font-medium text-slate-700">{user.nickname}</span>
           </span>
-          <button
-            onClick={onLogout}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            로그아웃
-          </button>
+          {/* 로그아웃 + 빌드시각 (배포 확인용 · 모바일에서도 표시) */}
+          <div className="flex flex-col items-end leading-none">
+            <button
+              onClick={onLogout}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              로그아웃
+            </button>
+            <span className="text-[9px] text-slate-300 font-mono mt-1" title="배포 빌드 시각">
+              {BUILD_LABEL}
+            </span>
+          </div>
         </div>
       </header>
 
