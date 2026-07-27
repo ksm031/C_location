@@ -59,8 +59,23 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   });
   const targetBarcodes = uniqueProducts.map(p => p.barcode);
   const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
-  const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
-  const diffQty = a.reason === 'SHORTAGE' ? `누락 ${a.sys_qty}개` : `초과 ${overageQty}개`;
+
+  // 초과/누락 수량: 항목 합계 우선, 누락은 항목이 없으면 보고서 전산수량으로 대체
+  const overageQty  = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
+  const remainQty   = (a.tote_remaining_items ?? []).reduce((s, i) => s + (i.sys_qty ?? 0), 0);
+  const shortageQty = remainQty > 0
+    ? remainQty
+    : (a.reason === 'SHORTAGE' || hasBothIssues ? (a.sys_qty ?? 0) : 0);
+
+  // 양쪽 다 있으면 둘 다 표시
+  const diffParts = [];
+  if (overageQty  > 0) diffParts.push({ text: `초과 ${overageQty}개`,  cls: 'text-yellow-600' });
+  if (shortageQty > 0) diffParts.push({ text: `누락 ${shortageQty}개`, cls: 'text-blue-600' });
+  if (diffParts.length === 0) {
+    diffParts.push(a.reason === 'SHORTAGE'
+      ? { text: '누락', cls: 'text-blue-600' }
+      : { text: '초과', cls: 'text-yellow-600' });
+  }
 
   // 정렬
   const sortedLocs = useMemo(() => {
@@ -176,8 +191,13 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
                   <img src={thumbs[uniqueProducts[0].barcode]} alt="" className="w-full h-full object-cover" />
                 </button>
               )}
-              <span className={`flex-shrink-0 font-semibold ${a.reason === 'SHORTAGE' ? 'text-blue-600' : 'text-yellow-600'}`}>
-                {diffQty}
+              <span className="flex-shrink-0 flex items-center gap-1 font-semibold">
+                {diffParts.map((p, i) => (
+                  <span key={p.text} className={p.cls}>
+                    {i > 0 && <span className="text-slate-300 font-normal mr-1">·</span>}
+                    {p.text}
+                  </span>
+                ))}
               </span>
               <span className="font-mono text-slate-600 flex-shrink-0">
                 {uniqueProducts[0].barcode.slice(0, -3)}
