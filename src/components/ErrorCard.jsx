@@ -27,8 +27,12 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
     : (a.tote_remaining_items ?? []);
   const uniqueBarcodeCount = new Set(barcodeCountItems.map(i => i.barcode)).size;
 
+  // 초과·누락이 섞인 토트: 배지로 반대편 유형을 표시
+  const mixed = (a.overage_items ?? []).length > 0 && (a.tote_remaining_items ?? []).length > 0;
+  const mixedLabel = a.reason === 'OVERAGE' ? '+누락' : '+초과';
+
   // 누락/초과 수량 텍스트
-  const overageQty = (a.overage_items ?? []).reduce((s, i) => s + i.qty, 0);
+  const overageQty = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
   const diffLabel = a.reason === 'SHORTAGE'
     ? `누락 ${a.sys_qty}개`
     : `초과 ${overageQty}개`;
@@ -56,6 +60,16 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${style.badge}`}>
             {style.label}
           </span>
+          {mixed && (
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                a.reason === 'OVERAGE' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+              }`}
+              title="초과·누락이 함께 있는 토트"
+            >
+              {mixedLabel}
+            </span>
+          )}
         </div>
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -126,7 +140,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
           </div>
           <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-blue-500'}`}
+              className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-slate-400'}`}
               style={{ width: `${pct}%` }}
             />
           </div>

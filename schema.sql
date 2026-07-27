@@ -91,7 +91,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE memos;
 -- ================================================================
 ALTER TABLE analyses
   ADD COLUMN IF NOT EXISTS overage_items        JSONB DEFAULT '[]'::JSONB,
-  ADD COLUMN IF NOT EXISTS tote_remaining_items JSONB DEFAULT '[]'::JSONB;
+  ADD COLUMN IF NOT EXISTS tote_remaining_items JSONB DEFAULT '[]'::JSONB,
+  ADD COLUMN IF NOT EXISTS inbound_worker       TEXT;   -- 입고 작업자 ('토트 내역' 섹션 작업자)
 
 -- ================================================================
 -- locations JSONB 구조 예시 (참고용)

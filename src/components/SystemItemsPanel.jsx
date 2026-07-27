@@ -98,6 +98,11 @@ export default function SystemItemsPanel({ analyses, onClose }) {
   const total = items.length;
   const done  = items.filter(i => checked[i._key]).length;
 
+  // 체크한 항목은 목록 아래로 (원래 순서는 유지)
+  const orderedItems = [...items].sort(
+    (a, b) => (checked[a._key] ? 1 : 0) - (checked[b._key] ? 1 : 0)
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex"
@@ -154,12 +159,12 @@ export default function SystemItemsPanel({ analyses, onClose }) {
               <div>전산 품목이 없습니다</div>
             </div>
           ) : (
-            items.map(item => (
+            orderedItems.map(item => (
               <label
                 key={item._key}
                 className={`flex gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all select-none
                   ${checked[item._key]
-                    ? 'border-green-400 bg-green-50'
+                    ? 'border-green-300 bg-green-50/60 opacity-50 hover:opacity-100'
                     : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/30'
                   }`}
               >
