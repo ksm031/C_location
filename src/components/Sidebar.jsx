@@ -92,7 +92,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
         <div className="flex gap-2">
           <button
             onClick={() => setSort('location')}
-            className={`flex-1 py-1 text-xs rounded-md transition-colors ${
+            className={`flex-1 py-1.5 text-xs rounded-md transition-colors ${
               sort === 'location'
                 ? 'bg-blue-100 text-blue-700 font-medium'
                 : 'text-slate-500 hover:bg-slate-100'
@@ -102,7 +102,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
           </button>
           <button
             onClick={() => setSort('reported_at')}
-            className={`flex-1 py-1 text-xs rounded-md transition-colors ${
+            className={`flex-1 py-1.5 text-xs rounded-md transition-colors ${
               sort === 'reported_at'
                 ? 'bg-blue-100 text-blue-700 font-medium'
                 : 'text-slate-500 hover:bg-slate-100'
@@ -134,7 +134,7 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
           </div>
           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${allDone ? 'bg-green-500' : 'bg-blue-500'}`}
+              className={`h-full rounded-full transition-all duration-500 ${allDone ? 'bg-green-500' : 'bg-slate-400'}`}
               style={{ width: `${pct}%` }}
             />
           </div>

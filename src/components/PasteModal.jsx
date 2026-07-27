@@ -228,12 +228,13 @@ export default function PasteModal({ user, onClose, onSaved }) {
 
     let saved = 0, skipped = 0;
     for (const r of parsed.reports) {
-      const { error } = await sb.from('analyses').insert({
+      const row = {
         report_id:   r.report_id,
         reported_at: r.reported_at ? new Date(r.reported_at).toISOString() : null,
         reason:      r.reason,
         tote_id:     r.tote_id,
         worker:      r.worker,
+        inbound_worker: r.inbound_worker ?? null,
         sys_qty:     r.sys_qty,
         placed_qty:  r.placed_qty,
         tote_qty:    r.tote_qty,
@@ -241,7 +242,15 @@ export default function PasteModal({ user, onClose, onSaved }) {
         overage_items:        [...(r.overage_items ?? []), ...manualOverage],
         tote_remaining_items: [...(r.tote_remaining_items ?? []), ...manualShortage],
         created_by:           user.nickname,
-      });
+      };
+
+      let { error } = await sb.from('analyses').insert(row);
+      // inbound_worker 컬럼 마이그레이션 전이면 해당 컬럼 빼고 재시도
+      if (error && /inbound_worker/.test(error.message ?? '')) {
+        const { inbound_worker: _drop, ...legacy } = row;
+        ({ error } = await sb.from('analyses').insert(legacy));
+      }
+
       if (error) {
         if (error.code === '23505') skipped++;
         else console.error('저장 오류:', error.message);

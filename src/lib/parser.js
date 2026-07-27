@@ -69,6 +69,25 @@ const TOTE_DISP_ROW = /^(PICKING|BUFFER|SHELF|FLOOR)\t([\w-]+)\t(\d+)\t([^\t]+)\
  */
 const TOTE_STOCK_ROW = /^(IBC\w+)\t(\w+)\t(\w+)\t(\d+)\t(\S+)\t([^\t]+)\t(\d+)/;
 
+/**
+ * 오류보고 > '토트 내역' 행 패턴 (입고된 전체 상품 목록)
+ * 예: 192368119	라라홀리 야상 점퍼 / FREE 카키	WHKR10120450817	21070590	133952354	1	조준현	2026-04-08 16:42:25
+ * 필드: sku_id, product_name, barcode, ext_po, unload_no, tote_qty, inbound_worker, inbound_at
+ */
+const TOTE_INBOUND_ROW =
+  /^(\d+)\t([^\t]+)\t(\S+)\t([^\t]*)\t([^\t]*)\t(\d+)\t([^\t]+)\t(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/;
+
+/** 오류보고 > '토트 내역' 최소 패턴 (열 구성이 달라도 바코드는 확보) */
+const TOTE_INBOUND_MIN_ROW = /^(\d+)\t([^\t]+)\t(\S+)\t/;
+
+
+/** 배열에서 가장 많이 등장한 값 (없으면 null) */
+function topValue(list) {
+  if (!list.length) return null;
+  const count = new Map();
+  for (const v of list) count.set(v, (count.get(v) ?? 0) + 1);
+  return [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
 
 /**
  * '진열 오류 내역' 섹션부터 시작하는 라인 배열을 받아 단일 오류보고 객체로 파싱
@@ -87,6 +106,7 @@ function parseSectionLines(lines) {
   let inToteRemaining      = false;
   let inOverage            = false;
   const stockItems         = []; // 토트 내역 items → parsedBarcodeMap 매칭용
+  const inboundWorkers     = []; // 토트 내역 작업자 (= 입고자)
   const toteRemainingItems = [];
   const overageItems       = [];
 
@@ -134,11 +154,17 @@ function parseSectionLines(lines) {
       continue;
     }
 
-    // ③ 토트 내역 섹션 처리 (입고된 전체 상품 목록 → 바코드 매칭용)
+    // ③ 토트 내역 섹션 처리 (입고된 전체 상품 목록 → 바코드 매칭 + 입고자)
     if (inToteInbound) {
       if (line.startsWith('SKU ID\t') || line === '조회된 데이터가 없습니다.') continue;
-      const m = /^(\d+)\t([^\t]+)\t(\S+)\t/.exec(line);
-      if (m) stockItems.push({ sku_id: m[1], product_name: m[2], barcode: m[3] });
+      const m = TOTE_INBOUND_ROW.exec(line);
+      if (m) {
+        stockItems.push({ sku_id: m[1], product_name: m[2], barcode: m[3] });
+        inboundWorkers.push(m[7]);
+        continue;
+      }
+      const s = TOTE_INBOUND_MIN_ROW.exec(line);
+      if (s) stockItems.push({ sku_id: s[1], product_name: s[2], barcode: s[3] });
       continue;
     }
 
@@ -216,6 +242,7 @@ function parseSectionLines(lines) {
   report.locations            = Object.values(locationMap).sort((a, b) =>
     a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
   );
+  report.inbound_worker       = topValue(inboundWorkers);
   report.stock_items          = stockItems;        // 토트 내역 (바코드 매칭용, 저장 안 함)
   report.tote_remaining_items = toteRemainingItems;
   report.overage_items        = overageItems;
@@ -310,6 +337,7 @@ function parseToteDetail(lines) {
   tote.locations           = Object.values(locationMap).sort((a, b) =>
     a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
   );
+  tote.inbound_worker       = tote.worker; // 입고 토트 상세의 작업자 = 입고자
   tote.stock_items          = stockItems; // 바코드 매치용 (저장 안 함)
   tote.overage_items        = [];
   tote.tote_remaining_items = [];

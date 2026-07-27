@@ -60,6 +60,13 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const targetBarcodes = uniqueProducts.map(p => p.barcode);
   const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
 
+  // 진열 내역의 실제 진열자들 (2명 이상이면 헤더에 경고)
+  const displayWorkers = [...new Set(
+    locs.flatMap(l => (l.items ?? []).map(i => i.display_worker)).filter(Boolean)
+  )];
+  const multiWorker  = displayWorkers.length > 1;
+  const workerLabel  = displayWorkers.length > 0 ? displayWorkers.join(', ') : (a.worker ?? '-');
+
   // 초과/누락 수량: 항목 합계 우선, 누락은 항목이 없으면 보고서 전산수량으로 대체
   const overageQty  = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
   const remainQty   = (a.tote_remaining_items ?? []).reduce((s, i) => s + (i.sys_qty ?? 0), 0);
@@ -149,32 +156,39 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
               없음
             </span>
           )}
+          {multiWorker && (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold"
+              title={`진열자 ${displayWorkers.join(', ')}`}
+            >
+              ⚠ 진열자 {displayWorkers.length}명
+            </span>
+          )}
         </div>
 
-        {/* 행 3: 신고시간 · 진열자 · 전산 */}
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-slate-500">
+        {/* 행 3: 신고시간 · 입고자 · 진열자 · 전산 + 메모 */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
           <span>{cardDate(a.reported_at)}</span>
-          <span>진열자 {a.worker}</span>
+          <span>입고자 {a.inbound_worker ?? '-'}</span>
+          <span className={multiWorker ? 'text-amber-700 font-medium' : undefined}>
+            진열자 {workerLabel}
+          </span>
           <span>전산 {a.sys_qty}개</span>
-        </div>
-
-        {/* 메모 버튼 */}
-        <div className="mt-1.5">
           <button
             onClick={() => setMemoOpen(true)}
-            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors
               ${memo
                 ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
                 : 'text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'
               }`}
           >
             <span>{memo ? '📝' : '✎'}</span>
-            <span>{memo ? '메모 있음' : '메모 추가'}</span>
+            <span>{memo ? '메모' : '메모 추가'}</span>
           </button>
-          {memo && (
-            <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">{memo}</p>
-          )}
         </div>
+        {memo && (
+          <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">{memo}</p>
+        )}
 
         {/* 행 4: 찾아야하는 갯수 + 바코드 목록 (접기/펼치기) */}
         {uniqueProducts.length > 0 && (
@@ -223,7 +237,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         {/* 진행률 바 */}
         <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-blue-500'}`}
+            className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-slate-400'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -239,7 +253,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
               <button
                 key={val}
                 onClick={() => setSortBy(val)}
-                className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-md text-xs transition-colors whitespace-nowrap ${
                   sortBy === val ? 'bg-blue-100 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
@@ -260,7 +274,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
               <button
                 key={val}
                 onClick={() => setFilter(val)}
-                className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-md text-xs transition-colors whitespace-nowrap ${
                   filterBy === val ? 'bg-slate-700 text-white font-medium' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
