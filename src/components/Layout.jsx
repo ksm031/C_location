@@ -258,21 +258,19 @@ export default function Layout({ user, onLogout }) {
           >
             <span>+</span> 붙여넣기
           </button>
+          {/* 빌드시각: 배포 확인용 (모바일은 공간상 생략) */}
+          <span className="text-[10px] text-slate-300 hidden sm:inline font-mono" title="배포 빌드 시각">
+            {BUILD_LABEL}
+          </span>
           <span className="hidden sm:inline text-sm text-slate-500">
             <span className="font-medium text-slate-700">{user.nickname}</span>
           </span>
-          {/* 로그아웃 + 빌드시각 (배포 확인용 · 모바일에서도 표시) */}
-          <div className="flex flex-col items-end leading-none">
-            <button
-              onClick={onLogout}
-              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              로그아웃
-            </button>
-            <span className="text-[9px] text-slate-300 font-mono mt-1" title="배포 빌드 시각">
-              {BUILD_LABEL}
-            </span>
-          </div>
+          <button
+            onClick={onLogout}
+            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            로그아웃
+          </button>
         </div>
       </header>
 
