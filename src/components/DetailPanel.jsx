@@ -74,6 +74,12 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
     ? remainQty
     : (a.reason === 'SHORTAGE' || hasBothIssues ? (a.sys_qty ?? 0) : 0);
 
+  // 여러 종일 때: 첫 상품 수량 / 나머지 수량 (합계가 첫 상품 것으로 오독되는 것 방지)
+  const itemQty  = i => i.sys_qty ?? i.qty ?? 0;
+  const firstQty = uniqueProducts.length > 0 ? itemQty(uniqueProducts[0]) : 0;
+  const restQty  = uniqueProducts.slice(1).reduce((s, i) => s + itemQty(i), 0);
+  const multiKind = uniqueProducts.length > 1;
+
   // 양쪽 다 있으면 둘 다 표시
   const diffParts = [];
   if (overageQty  > 0) diffParts.push({ text: `초과 ${overageQty}개`,  cls: 'text-yellow-600' });
@@ -220,8 +226,14 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
                 {uniqueProducts[0].barcode.slice(0, -3)}
                 <span className="font-bold">{uniqueProducts[0].barcode.slice(-3)}</span>
               </span>
-              {uniqueProducts.length > 1 && (
-                <span className="text-slate-400 flex-shrink-0">外 {uniqueProducts.length - 1}종</span>
+              {/* 여러 종이면 첫 상품 수량 + 나머지 수량을 각각 표기해 합계 오독 방지 */}
+              {multiKind && firstQty > 0 && (
+                <span className="flex-shrink-0 font-semibold text-slate-600">{firstQty}개</span>
+              )}
+              {multiKind && (
+                <span className="text-slate-400 flex-shrink-0">
+                  外 {uniqueProducts.length - 1}종{restQty > 0 && ` ${restQty}개`}
+                </span>
               )}
               <span className="text-slate-400 truncate">{uniqueProducts[0].product_name}</span>
               {/* 자세히 → 전산 품목 체크 패널 */}
