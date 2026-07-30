@@ -21,6 +21,15 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
 
+  // 진열자가 여러 명이면, 어느 진열자의 로케이션에서 찾았는지 카드에 표기
+  const workersOf = ls => [...new Set(
+    ls.flatMap(l => (l.items ?? []).map(i => i.display_worker)).filter(Boolean)
+  )];
+  const multiWorker  = workersOf(locs).length > 1;
+  const foundWorkers = multiWorker && outcome === 'found'
+    ? workersOf(locs.filter(l => checks[l.location_code]?.result === 'found'))
+    : [];
+
   // 대표 상품: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
   const firstItem = issueItems.find(Boolean) ?? null;
@@ -160,6 +169,15 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
           <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${outStyle.badge}`}>
             {outcome === 'found' ? `✓ 찾음 ${foundCount}` : '✗ 못 찾음'}
           </span>
+          {/* 진열자가 여러 명일 때: 찾은 로케이션의 진열자 */}
+          {foundWorkers.length > 0 && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium"
+              title="찾은 로케이션의 진열자"
+            >
+              {foundWorkers.join(', ')} 진열
+            </span>
+          )}
           {outcome === 'missing' && notFoundCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
               {notFoundCount}곳 확인
