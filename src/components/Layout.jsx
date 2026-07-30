@@ -241,20 +241,28 @@ export default function Layout({ user, onLogout }) {
     <div className="h-[100dvh] flex flex-col bg-slate-100">
       {/* ── 상단 헤더 ── */}
       <header className="flex items-center justify-between px-3 md:px-5 py-2 md:py-3 bg-white/95 backdrop-blur border-b border-slate-200 flex-shrink-0 shadow-sm">
-        <button
-          className="flex items-center gap-1.5 group"
-          onClick={() => setShowMemo(true)}
-          title="공유 메모장 열기"
-        >
+        {/* 제목은 일반 텍스트 — 버튼이면 바로 아래 '← 목록' 과 겹쳐 오터치가 남 */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-lg md:text-xl">📦</span>
-          <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base
-                           group-hover:text-blue-600 transition-colors">진열로케이션정리</span>
-        </button>
+          <span className="font-bold tracking-tight text-slate-800 text-sm md:text-base truncate">
+            진열로케이션정리
+          </span>
+        </div>
         <div className="flex items-center gap-2 md:gap-3">
+          {/* 공용 메모장 (아이콘만) */}
+          <button
+            onClick={() => setShowMemo(true)}
+            title="공용 메모장 열기"
+            aria-label="공용 메모장 열기"
+            className="w-9 h-9 flex items-center justify-center bg-amber-50 hover:bg-amber-100
+                       border border-amber-200 rounded-lg transition-colors flex-shrink-0 text-base"
+          >
+            📝
+          </button>
           <button
             onClick={() => setShowPaste(true)}
             className="px-3 md:px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-medium
-                       rounded-lg transition-colors flex items-center gap-1 shadow-sm"
+                       rounded-lg transition-colors flex items-center gap-1 shadow-sm flex-shrink-0"
           >
             <span>+</span> 붙여넣기
           </button>
