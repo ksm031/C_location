@@ -249,23 +249,22 @@ export default function Layout({ user, onLogout }) {
           </span>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
+          {/* 공용 메모장 (아이콘만) */}
+          <button
+            onClick={() => setShowMemo(true)}
+            title="공용 메모장 열기"
+            aria-label="공용 메모장 열기"
+            className="w-9 h-9 flex items-center justify-center bg-amber-50 hover:bg-amber-100
+                       border border-amber-200 rounded-lg transition-colors flex-shrink-0 text-base"
+          >
+            📝
+          </button>
           <button
             onClick={() => setShowPaste(true)}
             className="px-3 md:px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-medium
                        rounded-lg transition-colors flex items-center gap-1 shadow-sm flex-shrink-0"
           >
             <span>+</span> 붙여넣기
-          </button>
-          {/* 공용 메모장 */}
-          <button
-            onClick={() => setShowMemo(true)}
-            title="공용 메모장 열기"
-            className="px-3 md:px-4 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200
-                       text-xs md:text-sm font-medium rounded-lg transition-colors flex items-center gap-1
-                       flex-shrink-0 whitespace-nowrap"
-          >
-            <span>📝</span>
-            <span className="hidden sm:inline">공용 메모</span>
           </button>
           {/* 빌드시각: 배포 확인용 (모바일은 공간상 생략) */}
           <span className="text-[10px] text-slate-300 hidden sm:inline font-mono" title="배포 빌드 시각">
