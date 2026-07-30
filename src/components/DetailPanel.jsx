@@ -180,7 +180,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           )}
         </div>
 
-        {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 + 메모 */}
+        {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
           <span>{cardDate(a.reported_at)}</span>
           <span className={multiWorker ? 'text-amber-700' : undefined}>
@@ -198,21 +198,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           </span>
           <span>입고자 {a.inbound_worker ?? '-'}</span>
           <span>전산 {a.sys_qty}개</span>
-          <button
-            onClick={() => setMemoOpen(true)}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors
-              ${memo
-                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
-                : 'text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'
-              }`}
-          >
-            <span>{memo ? '📝' : '✎'}</span>
-            <span>{memo ? '메모' : '메모 추가'}</span>
-          </button>
         </div>
-        {memo && (
-          <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">{memo}</p>
-        )}
 
         {/* 행 4: 찾아야하는 갯수 + 바코드 목록 (접기/펼치기) */}
         {uniqueProducts.length > 0 && (
@@ -263,6 +249,26 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
 
           </div>
         )}
+
+        {/* 행 5: 메모 — '자세히' 와 세로로 겹쳐 오터치가 나서 별도 줄, 좌측 정렬 */}
+        <div className="mt-1.5">
+          <button
+            onClick={() => setMemoOpen(true)}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors
+              ${memo
+                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                : 'text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'
+              }`}
+          >
+            <span>{memo ? '📝' : '✎'}</span>
+            <span>{memo ? '메모' : '메모 추가'}</span>
+          </button>
+          {memo && (
+            <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">
+              {memo}
+            </p>
+          )}
+        </div>
 
         {/* 진행률 바 */}
         <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
