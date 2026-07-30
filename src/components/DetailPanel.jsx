@@ -3,7 +3,7 @@ import LocationAccordion from './LocationAccordion';
 import SystemItemsPanel from './SystemItemsPanel';
 import ToteMemoModal from './ToteMemoModal';
 import { getImgs } from '../lib/imageUtils';
-import { cardDate, REASON_STYLE, compareLocation } from '../lib/utils';
+import { cardDate, REASON_STYLE, compareLocation, checkOutcome, OUTCOME_STYLE } from '../lib/utils';
 
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, memo, onMemoSave, onMemoDelete }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
@@ -47,7 +47,10 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const foundCount  = locs.filter(l => checks[l.location_code]?.result === 'found').length;
   const notFoundCount = locs.filter(l => checks[l.location_code]?.result === 'not_found').length;
   const pct  = locs.length > 0 ? Math.round((done / locs.length) * 100) : 0;
-  const completed = locs.length > 0 && (done === locs.length || foundCount > 0);
+  // 찾아서 완료 / 못 찾아서 완료 구분
+  const outcome   = checkOutcome(locs, checks);
+  const outStyle  = OUTCOME_STYLE[outcome];
+  const completed = outcome === 'found' || outcome === 'missing';
 
   // 헤더 상품 목록: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
@@ -65,7 +68,11 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
     locs.flatMap(l => (l.items ?? []).map(i => i.display_worker)).filter(Boolean)
   )];
   const multiWorker  = displayWorkers.length > 1;
-  const workerLabel  = displayWorkers.length > 0 ? displayWorkers.join(', ') : (a.worker ?? '-');
+  // 신고자(오류보고 상 진열 작업자)를 맨 앞으로 — 여러 명일 때 누가 신고자인지 바로 보이게
+  const reporter = a.worker ?? null;
+  const orderedWorkers = displayWorkers.length > 0
+    ? [...displayWorkers.filter(w => w === reporter), ...displayWorkers.filter(w => w !== reporter)]
+    : (reporter ? [reporter] : []);
 
   // 초과/누락 수량: 항목 합계 우선, 누락은 항목이 없으면 보고서 전산수량으로 대체
   const overageQty  = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
@@ -147,20 +154,17 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           {/* 위계 2: 진행 상태 — pill 대신 점 구분 텍스트 */}
           <span className="flex items-center gap-1.5 text-slate-400">
             <span aria-hidden="true">·</span>
-            {completed
-              ? <span className="text-green-600 font-semibold">완료</span>
-              : <span className="text-slate-600 font-medium">{done}/{locs.length}</span>
-            }
-            {foundCount > 0 && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className="text-green-600">발견 {foundCount}</span>
-              </>
+            {outcome === 'found' ? (
+              <span className="text-green-600 font-bold">✓ 찾음 {foundCount}</span>
+            ) : outcome === 'missing' ? (
+              <span className="text-red-600 font-bold">✗ 못 찾음</span>
+            ) : (
+              <span className="text-slate-600 font-medium">{done}/{locs.length}</span>
             )}
-            {notFoundCount > 0 && foundCount === 0 && (
+            {completed && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="text-red-500">없음 {notFoundCount}</span>
+                <span className="text-slate-400">{done}/{locs.length} 확인</span>
               </>
             )}
           </span>
@@ -176,29 +180,25 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           )}
         </div>
 
-        {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 + 메모 */}
+        {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
           <span>{cardDate(a.reported_at)}</span>
-          <span className={multiWorker ? 'text-amber-700 font-medium' : undefined}>
-            진열자 {workerLabel}
+          <span className={multiWorker ? 'text-amber-700' : undefined}>
+            진열자{' '}
+            {orderedWorkers.length === 0 ? '-' : orderedWorkers.map((w, i) => (
+              <span
+                key={w}
+                className={multiWorker && w === reporter ? 'text-[13px] font-bold' : undefined}
+                title={multiWorker && w === reporter ? '신고자' : undefined}
+              >
+                {i > 0 && <span className="font-normal text-[12px]">, </span>}
+                {w}
+              </span>
+            ))}
           </span>
           <span>입고자 {a.inbound_worker ?? '-'}</span>
           <span>전산 {a.sys_qty}개</span>
-          <button
-            onClick={() => setMemoOpen(true)}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border transition-colors
-              ${memo
-                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
-                : 'text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'
-              }`}
-          >
-            <span>{memo ? '📝' : '✎'}</span>
-            <span>{memo ? '메모' : '메모 추가'}</span>
-          </button>
         </div>
-        {memo && (
-          <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">{memo}</p>
-        )}
 
         {/* 행 4: 찾아야하는 갯수 + 바코드 목록 (접기/펼치기) */}
         {uniqueProducts.length > 0 && (
@@ -250,10 +250,30 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           </div>
         )}
 
+        {/* 행 5: 메모 — '자세히' 와 세로로 겹쳐 오터치가 나서 별도 줄, 좌측 정렬 */}
+        <div className="mt-1.5">
+          <button
+            onClick={() => setMemoOpen(true)}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors
+              ${memo
+                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                : 'text-slate-400 border-slate-200 hover:bg-slate-50 hover:text-slate-600'
+              }`}
+          >
+            <span>{memo ? '📝' : '✎'}</span>
+            <span>{memo ? '메모' : '메모 추가'}</span>
+          </button>
+          {memo && (
+            <p className="mt-1 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap">
+              {memo}
+            </p>
+          )}
+        </div>
+
         {/* 진행률 바 */}
         <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-slate-400'}`}
+            className={`h-full rounded-full transition-all ${outStyle.bar}`}
             style={{ width: `${pct}%` }}
           />
         </div>

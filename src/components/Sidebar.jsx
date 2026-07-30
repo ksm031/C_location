@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import ErrorCard from './ErrorCard';
 import { getImgs } from '../lib/imageUtils';
-import { compareLocation } from '../lib/utils';
+import { compareLocation, primaryLocationCode } from '../lib/utils';
 
 /** 카드 대표 상품 바코드 (초과/누락 항목 중 첫 번째) */
 function repBarcode(a) {
@@ -50,17 +50,19 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
   // 정렬
   const sorted = useMemo(() => {
     if (sort === 'location') {
-      return [...filtered].sort((a, b) => {
-        const la = (a.locations?.[0]?.location_code ?? '');
-        const lb = (b.locations?.[0]?.location_code ?? '');
-        return compareLocation(la, lb);
-      });
+      // '없음'으로 확인한 로케이션은 제외하고 남은 것 중 가장 빠른 로케이션 기준
+      const keyOf = new Map(
+        filtered.map(a => [a.id, primaryLocationCode(a.locations ?? [], checks[a.id] ?? {})])
+      );
+      return [...filtered].sort((a, b) =>
+        compareLocation(keyOf.get(a.id) ?? '', keyOf.get(b.id) ?? '')
+      );
     }
     // reported_at 내림차순 (기본)
     return [...filtered].sort((a, b) =>
       (b.reported_at ?? '').localeCompare(a.reported_at ?? '')
     );
-  }, [filtered, sort]);
+  }, [filtered, sort, checks]);
 
   // 완료 건수 (ErrorCard의 completed 조건과 동일: 전체 체크 OR 하나라도 발견)
   const completedCount = useMemo(() =>

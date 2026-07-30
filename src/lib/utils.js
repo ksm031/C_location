@@ -66,6 +66,55 @@ export function compareLocation(a, b) {
   return ka < kb ? -1 : ka > kb ? 1 : 0;
 }
 
+/**
+ * '없음'으로 확인된 로케이션을 제외한 목록.
+ * 이미 없다고 확인한 곳은 다음 후보에서 빠져야 하므로 대표 로케이션/정렬에서 제외한다.
+ * 전부 '없음'이면 표시할 게 없어지므로 원본을 그대로 돌려준다.
+ *
+ * @param {Array}  locations - [{ location_code, ... }]
+ * @param {object} checks    - { [location_code]: { result } }
+ */
+export function activeLocations(locations = [], checks = {}) {
+  const alive = locations.filter(l => checks?.[l.location_code]?.result !== 'not_found');
+  return alive.length > 0 ? alive : locations;
+}
+
+/** '없음' 제외 후 가장 빠른 로케이션 코드 (카드 대표 표기 · 목록 정렬 기준) */
+export function primaryLocationCode(locations = [], checks = {}) {
+  let best = null;
+  for (const l of activeLocations(locations, checks)) {
+    if (best === null || compareLocation(l.location_code, best) < 0) best = l.location_code;
+  }
+  return best ?? '';
+}
+
+/**
+ * 로케이션 체크 결과 상태
+ *   'found'    - 하나라도 발견 → 성공 (초록)
+ *   'missing'  - 전부 확인했지만 못 찾음 → 실패 (빨강)
+ *   'progress' - 아직 확인 중
+ *   'none'     - 로케이션 정보 없음
+ *
+ * '찾아서 완료' 와 '못 찾아서 완료' 는 결과가 정반대이므로 색으로 구분한다.
+ */
+export function checkOutcome(locations = [], checks = {}) {
+  const total = locations.length;
+  if (total === 0) return 'none';
+  const done  = locations.filter(l => checks?.[l.location_code]).length;
+  const found = locations.filter(l => checks?.[l.location_code]?.result === 'found').length;
+  if (found > 0)      return 'found';
+  if (done === total) return 'missing';
+  return 'progress';
+}
+
+/** 결과 상태별 색 (카드 배경 · 진행바 · 배지) */
+export const OUTCOME_STYLE = {
+  found:    { bg: 'bg-green-50', bar: 'bg-green-500', badge: 'bg-green-500 text-white', text: 'text-green-600' },
+  missing:  { bg: 'bg-red-50',   bar: 'bg-red-400',   badge: 'bg-red-500 text-white',   text: 'text-red-600'   },
+  progress: { bg: 'bg-white',    bar: 'bg-slate-400', badge: '',                        text: 'text-slate-600' },
+  none:     { bg: 'bg-white',    bar: 'bg-slate-400', badge: '',                        text: 'text-slate-600' },
+};
+
 export const REASON_STYLE = {
   SHORTAGE: {
     accent:     'border-l-blue-400',   // 카드 좌측 4px 유형 표시

@@ -1,4 +1,4 @@
-import { cardDate, REASON_STYLE } from '../lib/utils';
+import { cardDate, REASON_STYLE, activeLocations, checkOutcome, OUTCOME_STYLE } from '../lib/utils';
 
 /** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */
 function shortLoc(code) {
@@ -14,9 +14,21 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   const foundCount   = locs.filter(l => checks[l.location_code]?.result === 'found').length;
   const notFoundCount = locs.filter(l => checks[l.location_code]?.result === 'not_found').length;
   const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
-  const completed = total > 0 && (done === total || foundCount > 0);
+  // 찾아서 완료 / 못 찾아서 완료 를 구분 (색이 갈린다)
+  const outcome    = checkOutcome(locs, checks);
+  const outStyle   = OUTCOME_STYLE[outcome];
+  const completed  = outcome === 'found' || outcome === 'missing';
 
   const style = REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE;
+
+  // 진열자가 여러 명이면, 어느 진열자의 로케이션에서 찾았는지 카드에 표기
+  const workersOf = ls => [...new Set(
+    ls.flatMap(l => (l.items ?? []).map(i => i.display_worker)).filter(Boolean)
+  )];
+  const multiWorker  = workersOf(locs).length > 1;
+  const foundWorkers = multiWorker && outcome === 'found'
+    ? workersOf(locs.filter(l => checks[l.location_code]?.result === 'found'))
+    : [];
 
   // 대표 상품: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
@@ -39,7 +51,8 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
     : `초과 ${sum}${overageQty}개`;
 
   // 대표 로케이션 (축약 + 중복 제거, 최대 3개)
-  const locCodes  = [...new Set(locs.map(l => shortLoc(l.location_code)))];
+  // '없음'으로 확인한 곳은 제외 → 다음으로 빠른 로케이션이 앞에 온다
+  const locCodes  = [...new Set(activeLocations(locs, checks).map(l => shortLoc(l.location_code)))];
   const shownLocs = locCodes.slice(0, 3);
   const extraLocs = locCodes.length - shownLocs.length;
 
@@ -48,10 +61,10 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       onClick={onSelect}
       className={`w-full rounded-xl border-y border-r border-l-4 cursor-pointer transition-all
                   select-none p-3 space-y-1.5 overflow-hidden
+                  border-y-slate-200 border-r-slate-200 ${style.accent} ${outStyle.bg}
         ${selected
-          ? 'border-y-green-400 border-r-green-400 border-l-green-500 bg-green-50 shadow-sm'
-          : `border-y-slate-200 border-r-slate-200 ${style.accent} bg-white
-             hover:border-y-slate-300 hover:border-r-slate-300 hover:shadow-sm`
+          ? 'ring-2 ring-blue-500 shadow-sm'
+          : 'hover:border-y-slate-300 hover:border-r-slate-300 hover:shadow-sm'
         }`}
     >
       {/* 행 1: 토트번호 + 배지 + 삭제 */}
@@ -137,30 +150,38 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
         <div className="space-y-1 pt-0.5">
           <div className="flex justify-between text-xs text-slate-400">
             <span>로케이션 체크</span>
-            <span className={completed ? 'text-green-600 font-medium' : ''}>
-              {done}/{total}{completed && ' ✓'}
+            <span className={completed ? `${outStyle.text} font-medium` : ''}>
+              {done}/{total}
             </span>
           </div>
           <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-slate-400'}`}
+              className={`h-full rounded-full transition-all ${outStyle.bar}`}
               style={{ width: `${pct}%` }}
             />
           </div>
         </div>
       )}
 
-      {/* 결과 배지: 찾음은 하나만 눌러도 표시, 찾음 있으면 없음 숨김 */}
-      {(completed || foundCount > 0 || (notFoundCount > 0 && foundCount === 0)) && (
+      {/* 결과 배지: 결론 하나만 꽉 찬 색으로 (찾음=초록 / 못 찾음=빨강) */}
+      {completed && (
         <div className="flex flex-wrap gap-1 pt-0.5">
-          {completed && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✓ 완료</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${outStyle.badge}`}>
+            {outcome === 'found' ? `✓ 찾음 ${foundCount}` : '✗ 못 찾음'}
+          </span>
+          {/* 진열자가 여러 명일 때: 찾은 로케이션의 진열자 */}
+          {foundWorkers.length > 0 && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium"
+              title="찾은 로케이션의 진열자"
+            >
+              {foundWorkers.join(', ')} 진열
+            </span>
           )}
-          {foundCount > 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">찾음 {foundCount}</span>
-          )}
-          {notFoundCount > 0 && foundCount === 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 font-medium">없음</span>
+          {outcome === 'missing' && notFoundCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+              {notFoundCount}곳 확인
+            </span>
           )}
         </div>
       )}

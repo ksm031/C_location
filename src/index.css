@@ -15,6 +15,21 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   word-break: keep-all;   /* 한글 단어 중간 줄바꿈 방지 */
+
+  /* 핀치 줌 / 더블탭 줌 차단 (스크롤은 그대로 허용) */
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 터치 기기: 입력창 글자를 16px 로 —
+   iOS Safari 는 16px 미만 입력창에 포커스되면 화면을 자동 확대한다.
+   (마우스 환경에는 영향 없음) */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* 스크롤바 숨김 유틸 */

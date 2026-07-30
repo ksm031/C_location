@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Barcode128 from './Barcode128';
 import { formatDate } from '../lib/parser';
 
 export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcodes = [], starred = false, onStarToggle }) {
@@ -134,6 +135,10 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
       {/* 상세 항목 목록 */}
       {open && (
         <div className="border-t border-slate-100 divide-y divide-slate-50">
+          {/* 로케이션 코드 바코드 (스캔용) */}
+          <div className="px-4 py-2 flex justify-center bg-slate-50/60">
+            <Barcode128 value={location_code} height={22} width={0.9} />
+          </div>
           {items.map((item, idx) => (
             <div key={idx} className="px-4 py-2.5 flex items-start gap-3">
               <div className="flex-1 min-w-0">
