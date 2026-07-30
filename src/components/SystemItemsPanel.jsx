@@ -1,23 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import JsBarcode from 'jsbarcode';
+import Barcode128 from './Barcode128';
 import { getImgs, saveImg, compressImage } from '../lib/imageUtils';
-
-function Barcode128({ value }) {
-  const svgRef = useRef(null);
-  useEffect(() => {
-    if (!svgRef.current || !value) return;
-    try {
-      JsBarcode(svgRef.current, value, {
-        format: 'CODE128',
-        width: 1.2,
-        height: 32,
-        margin: 4,
-        displayValue: false,
-      });
-    } catch (_) {}
-  }, [value]);
-  return <svg ref={svgRef} className="max-w-full" />;
-}
 
 export default function SystemItemsPanel({ analyses, onClose }) {
   // 오늘 날짜 기준으로 localStorage 키 생성 → 매일 자동 초기화

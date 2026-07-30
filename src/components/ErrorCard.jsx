@@ -1,4 +1,4 @@
-import { cardDate, REASON_STYLE } from '../lib/utils';
+import { cardDate, REASON_STYLE, activeLocations } from '../lib/utils';
 
 /** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */
 function shortLoc(code) {
@@ -39,7 +39,8 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
     : `초과 ${sum}${overageQty}개`;
 
   // 대표 로케이션 (축약 + 중복 제거, 최대 3개)
-  const locCodes  = [...new Set(locs.map(l => shortLoc(l.location_code)))];
+  // '없음'으로 확인한 곳은 제외 → 다음으로 빠른 로케이션이 앞에 온다
+  const locCodes  = [...new Set(activeLocations(locs, checks).map(l => shortLoc(l.location_code)))];
   const shownLocs = locCodes.slice(0, 3);
   const extraLocs = locCodes.length - shownLocs.length;
 

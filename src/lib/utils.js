@@ -66,6 +66,28 @@ export function compareLocation(a, b) {
   return ka < kb ? -1 : ka > kb ? 1 : 0;
 }
 
+/**
+ * '없음'으로 확인된 로케이션을 제외한 목록.
+ * 이미 없다고 확인한 곳은 다음 후보에서 빠져야 하므로 대표 로케이션/정렬에서 제외한다.
+ * 전부 '없음'이면 표시할 게 없어지므로 원본을 그대로 돌려준다.
+ *
+ * @param {Array}  locations - [{ location_code, ... }]
+ * @param {object} checks    - { [location_code]: { result } }
+ */
+export function activeLocations(locations = [], checks = {}) {
+  const alive = locations.filter(l => checks?.[l.location_code]?.result !== 'not_found');
+  return alive.length > 0 ? alive : locations;
+}
+
+/** '없음' 제외 후 가장 빠른 로케이션 코드 (카드 대표 표기 · 목록 정렬 기준) */
+export function primaryLocationCode(locations = [], checks = {}) {
+  let best = null;
+  for (const l of activeLocations(locations, checks)) {
+    if (best === null || compareLocation(l.location_code, best) < 0) best = l.location_code;
+  }
+  return best ?? '';
+}
+
 export const REASON_STYLE = {
   SHORTAGE: {
     accent:     'border-l-blue-400',   // 카드 좌측 4px 유형 표시

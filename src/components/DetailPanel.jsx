@@ -65,7 +65,11 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
     locs.flatMap(l => (l.items ?? []).map(i => i.display_worker)).filter(Boolean)
   )];
   const multiWorker  = displayWorkers.length > 1;
-  const workerLabel  = displayWorkers.length > 0 ? displayWorkers.join(', ') : (a.worker ?? '-');
+  // 신고자(오류보고 상 진열 작업자)를 맨 앞으로 — 여러 명일 때 누가 신고자인지 바로 보이게
+  const reporter = a.worker ?? null;
+  const orderedWorkers = displayWorkers.length > 0
+    ? [...displayWorkers.filter(w => w === reporter), ...displayWorkers.filter(w => w !== reporter)]
+    : (reporter ? [reporter] : []);
 
   // 초과/누락 수량: 항목 합계 우선, 누락은 항목이 없으면 보고서 전산수량으로 대체
   const overageQty  = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
@@ -179,8 +183,18 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 + 메모 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
           <span>{cardDate(a.reported_at)}</span>
-          <span className={multiWorker ? 'text-amber-700 font-medium' : undefined}>
-            진열자 {workerLabel}
+          <span className={multiWorker ? 'text-amber-700' : undefined}>
+            진열자{' '}
+            {orderedWorkers.length === 0 ? '-' : orderedWorkers.map((w, i) => (
+              <span
+                key={w}
+                className={multiWorker && w === reporter ? 'text-[13px] font-bold' : undefined}
+                title={multiWorker && w === reporter ? '신고자' : undefined}
+              >
+                {i > 0 && <span className="font-normal text-[12px]">, </span>}
+                {w}
+              </span>
+            ))}
           </span>
           <span>입고자 {a.inbound_worker ?? '-'}</span>
           <span>전산 {a.sys_qty}개</span>
