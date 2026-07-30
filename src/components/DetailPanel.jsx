@@ -3,7 +3,7 @@ import LocationAccordion from './LocationAccordion';
 import SystemItemsPanel from './SystemItemsPanel';
 import ToteMemoModal from './ToteMemoModal';
 import { getImgs } from '../lib/imageUtils';
-import { cardDate, REASON_STYLE, compareLocation } from '../lib/utils';
+import { cardDate, REASON_STYLE, compareLocation, checkOutcome, OUTCOME_STYLE } from '../lib/utils';
 
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, memo, onMemoSave, onMemoDelete }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
@@ -47,7 +47,10 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const foundCount  = locs.filter(l => checks[l.location_code]?.result === 'found').length;
   const notFoundCount = locs.filter(l => checks[l.location_code]?.result === 'not_found').length;
   const pct  = locs.length > 0 ? Math.round((done / locs.length) * 100) : 0;
-  const completed = locs.length > 0 && (done === locs.length || foundCount > 0);
+  // 찾아서 완료 / 못 찾아서 완료 구분
+  const outcome   = checkOutcome(locs, checks);
+  const outStyle  = OUTCOME_STYLE[outcome];
+  const completed = outcome === 'found' || outcome === 'missing';
 
   // 헤더 상품 목록: 오버리지 등록 항목 + 토트에 남은 전산재고만 표시
   const issueItems = [...(a.overage_items ?? []), ...(a.tote_remaining_items ?? [])];
@@ -151,20 +154,17 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           {/* 위계 2: 진행 상태 — pill 대신 점 구분 텍스트 */}
           <span className="flex items-center gap-1.5 text-slate-400">
             <span aria-hidden="true">·</span>
-            {completed
-              ? <span className="text-green-600 font-semibold">완료</span>
-              : <span className="text-slate-600 font-medium">{done}/{locs.length}</span>
-            }
-            {foundCount > 0 && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className="text-green-600">발견 {foundCount}</span>
-              </>
+            {outcome === 'found' ? (
+              <span className="text-green-600 font-bold">✓ 찾음 {foundCount}</span>
+            ) : outcome === 'missing' ? (
+              <span className="text-red-600 font-bold">✗ 못 찾음</span>
+            ) : (
+              <span className="text-slate-600 font-medium">{done}/{locs.length}</span>
             )}
-            {notFoundCount > 0 && foundCount === 0 && (
+            {completed && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="text-red-500">없음 {notFoundCount}</span>
+                <span className="text-slate-400">{done}/{locs.length} 확인</span>
               </>
             )}
           </span>
@@ -267,7 +267,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         {/* 진행률 바 */}
         <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${completed ? 'bg-green-500' : 'bg-slate-400'}`}
+            className={`h-full rounded-full transition-all ${outStyle.bar}`}
             style={{ width: `${pct}%` }}
           />
         </div>
