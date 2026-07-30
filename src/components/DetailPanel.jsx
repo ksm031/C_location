@@ -3,7 +3,7 @@ import LocationAccordion from './LocationAccordion';
 import SystemItemsPanel from './SystemItemsPanel';
 import ToteMemoModal from './ToteMemoModal';
 import { getImgs } from '../lib/imageUtils';
-import { cardDate, REASON_STYLE } from '../lib/utils';
+import { cardDate, REASON_STYLE, compareLocation } from '../lib/utils';
 
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, memo, onMemoSave, onMemoDelete }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
@@ -101,7 +101,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         return ta.localeCompare(tb);
       });
     } else {
-      list.sort((a, b) => a.location_code.localeCompare(b.location_code, undefined, { numeric: true }));
+      list.sort((a, b) => compareLocation(a.location_code, b.location_code));
     }
     return list;
   }, [locs, sortBy]);

@@ -1,3 +1,5 @@
+import { compareLocation } from './utils.js';
+
 /**
  * parser.js - 쿠팡 인트라넷 페이지 파싱 엔진
  *
@@ -239,9 +241,8 @@ function parseSectionLines(lines) {
     locationMap[row.location_code].total_qty += row.display_qty;
   }
 
-  report.locations            = Object.values(locationMap).sort((a, b) =>
-    a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
-  );
+  report.locations            = Object.values(locationMap)
+    .sort((a, b) => compareLocation(a.location_code, b.location_code));
   report.inbound_worker       = topValue(inboundWorkers);
   report.stock_items          = stockItems;        // 토트 내역 (바코드 매칭용, 저장 안 함)
   report.tote_remaining_items = toteRemainingItems;
@@ -334,9 +335,8 @@ function parseToteDetail(lines) {
   tote.report_id           = `TOTE_${tote.tote_id}_${dateCompact}`;
   tote.reason              = 'TOTE_INBOUND';
   tote.sys_qty             = tote.tote_qty;
-  tote.locations           = Object.values(locationMap).sort((a, b) =>
-    a.location_code.localeCompare(b.location_code, undefined, { numeric: true })
-  );
+  tote.locations           = Object.values(locationMap)
+    .sort((a, b) => compareLocation(a.location_code, b.location_code));
   tote.inbound_worker       = tote.worker; // 입고 토트 상세의 작업자 = 입고자
   tote.stock_items          = stockItems; // 바코드 매치용 (저장 안 함)
   tote.overage_items        = [];
