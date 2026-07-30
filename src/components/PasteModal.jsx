@@ -62,8 +62,8 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
             type="number"
             value={qty ?? ''}
             onChange={e => onQtyChange(itemKey, e.target.value === '' ? null : parseInt(e.target.value))}
-            placeholder="+초과 / -누락"
-            title="양수: 오버리지, 음수: 숏테이지"
+            placeholder="±수량"
+            title="양수: 초과(오버리지), 음수: 누락(숏테이지)"
             className={`w-20 flex-shrink-0 text-xs border rounded px-2 py-0.5 focus:outline-none focus:ring-1 text-center
               ${qty > 0 ? 'border-yellow-300 text-yellow-700 focus:ring-yellow-400' :
                 qty < 0 ? 'border-blue-300 text-blue-700 focus:ring-blue-400' :
