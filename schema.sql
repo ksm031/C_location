@@ -92,7 +92,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE memos;
 ALTER TABLE analyses
   ADD COLUMN IF NOT EXISTS overage_items        JSONB DEFAULT '[]'::JSONB,
   ADD COLUMN IF NOT EXISTS tote_remaining_items JSONB DEFAULT '[]'::JSONB,
-  ADD COLUMN IF NOT EXISTS inbound_worker       TEXT;   -- 입고 작업자 ('토트 내역' 섹션 작업자)
+  ADD COLUMN IF NOT EXISTS inbound_worker       TEXT,   -- 입고 작업자 ('토트 내역' 섹션 작업자)
+  ADD COLUMN IF NOT EXISTS similar_items        JSONB;  -- 유사상품 확정 바코드 배열
+  -- similar_items 의미 (DEFAULT 를 붙이면 안 됨):
+  --   NULL = 미지정 (표시 안 함) / [] = 사용자가 전부 해제 / ["880..."] = 확정
 
 -- ================================================================
 -- locations JSONB 구조 예시 (참고용)
