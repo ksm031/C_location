@@ -61,6 +61,8 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
     return true;
   });
   const targetBarcodes = uniqueProducts.map(p => p.barcode);
+  // 유사상품: 등록 시 확정된 값만 사용 (미지정이면 표시 안 함)
+  const similarBarcodes = Array.isArray(a.similar_items) ? a.similar_items : [];
   const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
 
   // 진열 내역의 실제 진열자들 (2명 이상이면 헤더에 경고)
@@ -362,6 +364,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
             onUncheck={onUncheck}
             analysisId={a.id}
             targetBarcodes={targetBarcodes}
+            similarBarcodes={similarBarcodes}
             starred={!!stars[loc.location_code]}
             onStarToggle={onStarToggle}
           />

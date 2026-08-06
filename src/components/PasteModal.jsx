@@ -2,6 +2,10 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { parseText } from '../lib/parser';
 import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
+import { findSimilarBarcodes } from '../lib/similarity';
+
+/** DB 마이그레이션이 아직 안 된 서버에서 빼고 재시도할 컬럼 */
+const OPTIONAL_COLS = ['similar_items', 'inbound_worker'];
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
 function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange, qtyEditable, autoMatched }) {
@@ -125,6 +129,8 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [nameOverrides, setNameOverrides] = useState({}); // { barcode: string } 수기 바코드 상품명
   const [qtyOverrides, setQtyOverrides]   = useState({}); // { barcode: number } 수기 바코드 수량
   const [locationInput, setLocationInput] = useState(''); // 수기 진열존 입력
+  const [similarOverrides, setSimilarOverrides] = useState({}); // { "리포트인덱스:바코드": bool }
+  const [showAllCandidates, setShowAllCandidates] = useState(false);
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -174,6 +180,51 @@ export default function PasteModal({ user, onClose, onSaved }) {
     });
     return list;
   }, [parsed, manualBarcodes, parsedBarcodeMap]);
+
+  /* 유사상품 후보: 리포트별로 계산 (전역 집계하면 다른 행에 저장돼 버림)
+     후보 = 그 리포트 로케이션에 진열된 상품 중 '찾는 대상'이 아닌 것 */
+  const candidatesByReport = useMemo(() => {
+    if (!parsed?.reports) return [];
+    return parsed.reports.map(r => {
+      const targetSet = new Set([
+        ...(r.overage_items ?? []).map(i => i.barcode),
+        ...(r.tote_remaining_items ?? []).map(i => i.barcode),
+        ...manualBarcodes,
+      ].filter(Boolean));
+      const seen = new Set();
+      const list = [];
+      for (const loc of r.locations ?? []) {
+        for (const item of loc.items ?? []) {
+          if (!item.barcode || targetSet.has(item.barcode) || seen.has(item.barcode)) continue;
+          seen.add(item.barcode);
+          list.push({ barcode: item.barcode, product_name: item.product_name ?? '' });
+        }
+      }
+      return list;
+    });
+  }, [parsed, manualBarcodes]);
+
+  /* 리포트별 자동 추정 결과 (디폴트 체크용) */
+  const autoSimilarByReport = useMemo(() => {
+    if (!parsed?.reports) return [];
+    return parsed.reports.map(r => {
+      const targets = [
+        ...(r.overage_items ?? []),
+        ...(r.tote_remaining_items ?? []),
+        ...manualBarcodes.map(b => ({
+          barcode: b,
+          product_name: parsedBarcodeMap.get(b)?.product_name ?? '',
+        })),
+      ].filter(t => t.barcode);
+      return new Set(findSimilarBarcodes(targets, r.locations ?? []));
+    });
+  }, [parsed, manualBarcodes, parsedBarcodeMap]);
+
+  /* 체크 상태: override 가 없으면 자동 추정을 따름 (하이브리드) */
+  const isSimilarChecked = (ri, barcode) =>
+    similarOverrides[`${ri}:${barcode}`] ?? autoSimilarByReport[ri]?.has(barcode) ?? false;
+
+  const totalCandidates = candidatesByReport.reduce((s, l) => s + l.length, 0);
 
   /* 파싱 결과에 로케이션이 하나도 없는지 여부 */
   const hasNoLocations = useMemo(() =>
@@ -227,7 +278,8 @@ export default function PasteModal({ user, onClose, onSaved }) {
     });
 
     let saved = 0, skipped = 0;
-    for (const r of parsed.reports) {
+    for (const [ri, r] of parsed.reports.entries()) {
+      const candidates = candidatesByReport[ri] ?? [];
       const row = {
         report_id:   r.report_id,
         reported_at: r.reported_at ? new Date(r.reported_at).toISOString() : null,
@@ -241,14 +293,21 @@ export default function PasteModal({ user, onClose, onSaved }) {
         locations:            [...(r.locations ?? []), ...manualLocations],
         overage_items:        [...(r.overage_items ?? []), ...manualOverage],
         tote_remaining_items: [...(r.tote_remaining_items ?? []), ...manualShortage],
+        // 후보가 없으면 null(미지정), 있으면 체크된 것만 (전부 해제 시 [])
+        similar_items: candidates.length > 0
+          ? candidates.filter(c => isSimilarChecked(ri, c.barcode)).map(c => c.barcode)
+          : null,
         created_by:           user.nickname,
       };
 
-      let { error } = await sb.from('analyses').insert(row);
-      // inbound_worker 컬럼 마이그레이션 전이면 해당 컬럼 빼고 재시도
-      if (error && /inbound_worker/.test(error.message ?? '')) {
-        const { inbound_worker: _drop, ...legacy } = row;
-        ({ error } = await sb.from('analyses').insert(legacy));
+      // 마이그레이션 전 서버면 없는 컬럼을 하나씩 빼며 재시도
+      let attempt = { ...row };
+      let { error } = await sb.from('analyses').insert(attempt);
+      for (let i = 0; i < OPTIONAL_COLS.length && error; i++) {
+        const missing = OPTIONAL_COLS.find(c => c in attempt && (error.message ?? '').includes(c));
+        if (!missing) break;
+        delete attempt[missing];
+        ({ error } = await sb.from('analyses').insert(attempt));
       }
 
       if (error) {
@@ -274,6 +333,8 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setNameOverrides({});
     setQtyOverrides({});
     setLocationInput('');
+    setSimilarOverrides({});
+    setShowAllCandidates(false);
   };
 
   const handleSetImg = useCallback((barcode, dataUrl) => {
@@ -507,6 +568,89 @@ export default function PasteModal({ user, onClose, onSaved }) {
                   <p className="text-sm text-slate-400 text-center py-6">첨부할 상품이 없습니다.</p>
                 )}
               </div>
+
+              {/* 유사상품 지정 (후보가 있을 때만) */}
+              {totalCandidates > 0 && (
+                <div className="mt-5 border border-violet-200 bg-violet-50/40 rounded-xl p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <p className="text-sm font-medium text-violet-800">유사상품 위치 표시 <span className="font-normal text-violet-500">(선택)</span></p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        체크한 상품이 진열된 로케이션을 보라색으로 표시합니다. 자동 추정된 후보는 미리 체크되어 있습니다.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const next = {};
+                        candidatesByReport.forEach((list, ri) =>
+                          list.forEach(c => { next[`${ri}:${c.barcode}`] = false; })
+                        );
+                        setSimilarOverrides(next);
+                      }}
+                      className="flex-shrink-0 text-xs text-slate-400 hover:text-slate-600 underline"
+                    >
+                      전체 해제
+                    </button>
+                  </div>
+
+                  {candidatesByReport.map((list, ri) => {
+                    if (list.length === 0) return null;
+                    // 자동 추정된 것 먼저 — 접기 대상에서 제외
+                    const auto   = list.filter(c => autoSimilarByReport[ri]?.has(c.barcode));
+                    const others = list.filter(c => !autoSimilarByReport[ri]?.has(c.barcode));
+                    const shown  = showAllCandidates ? others : others.slice(0, 10);
+                    const hidden = others.length - shown.length;
+
+                    return (
+                      <div key={ri} className="mt-2 first:mt-0">
+                        {candidatesByReport.filter(l => l.length > 0).length > 1 && (
+                          <p className="text-xs font-mono text-slate-500 mb-1">
+                            {parsed.reports[ri]?.report_id ?? parsed.reports[ri]?.tote_id}
+                          </p>
+                        )}
+                        <div className="space-y-0.5">
+                          {[...auto, ...shown].map(c => {
+                            const checked = isSimilarChecked(ri, c.barcode);
+                            const isAuto  = autoSimilarByReport[ri]?.has(c.barcode);
+                            return (
+                              <label
+                                key={c.barcode}
+                                className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-white/70 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={e => setSimilarOverrides(prev => ({
+                                    ...prev, [`${ri}:${c.barcode}`]: e.target.checked,
+                                  }))}
+                                  className="w-4 h-4 accent-violet-500 flex-shrink-0"
+                                />
+                                <span className="font-mono text-xs text-slate-600 flex-shrink-0">
+                                  {c.barcode.slice(0, -3)}<span className="font-bold">{c.barcode.slice(-3)}</span>
+                                </span>
+                                <span className="text-xs text-slate-400 truncate flex-1">{c.product_name}</span>
+                                {isAuto && (
+                                  <span className="flex-shrink-0 text-[10px] text-green-600 font-medium px-1 py-0.5 bg-green-50 border border-green-200 rounded">
+                                    자동
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {hidden > 0 && (
+                          <button
+                            onClick={() => setShowAllCandidates(true)}
+                            className="mt-1 text-xs text-violet-600 hover:text-violet-800"
+                          >
+                            ▸ 나머지 {hidden}종 보기
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="px-6 pb-6 flex justify-between items-center">
               <button onClick={() => setStep(hasNoLocations ? 'location' : 'preview')} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">

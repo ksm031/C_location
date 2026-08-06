@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Barcode128 from './Barcode128';
 import { formatDate } from '../lib/parser';
 
-export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcodes = [], starred = false, onStarToggle }) {
+export default function LocationAccordion({ location, check, onCheck, onUncheck, analysisId, targetBarcodes = [], similarBarcodes = [], starred = false, onStarToggle }) {
   const [open, setOpen] = useState(false);
   const { location_code, items = [], total_qty } = location;
   const result = check?.result;
@@ -22,6 +22,12 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
     matchedItems.map(i => i.barcode?.slice(-3)).filter(Boolean)
   )];
 
+  // 유사상품: 등록 시 확정된 바코드 목록 기준 (일치가 항상 우선)
+  const isSimilar = (item) =>
+    item.barcode && !isMatch(item) && similarBarcodes.includes(item.barcode);
+  const similarItems    = items.filter(isSimilar);
+  const similarSkuCount = new Set(similarItems.map(i => i.barcode)).size;
+
   // 이 로케이션의 고유 SKU 수 (같은 바코드 복수 진열 행은 1종으로 집계)
   const uniqueSkuCount = new Set(items.map(i => i.barcode)).size;
 
@@ -32,6 +38,7 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
     <div className={`rounded-xl border transition-colors ${
       result === 'found'     ? 'border-green-300 bg-green-50' :
       result === 'not_found' ? 'border-red-300 bg-red-50'    :
+      similarSkuCount > 0    ? 'border-violet-300 bg-white'   :
       'border-slate-200 bg-white'
     }`}>
       {/* 헤더 */}
@@ -84,6 +91,14 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
                 </>
               )}
               {matchCount}개 일치
+            </span>
+          )}
+          {similarSkuCount > 0 && (
+            <span
+              className="text-xs font-semibold text-violet-600"
+              title={similarItems.map(i => `${i.barcode} ${i.product_name}`).join('\n')}
+            >
+              유사 {similarSkuCount}종
             </span>
           )}
         </div>
@@ -142,10 +157,17 @@ export default function LocationAccordion({ location, check, onCheck, onUncheck,
           {items.map((item, idx) => (
             <div key={idx} className="px-4 py-2.5 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className={`text-xs ${isMatch(item) ? 'text-amber-600 font-semibold' : 'text-slate-700'}`} title={item.product_name}>
+                <p className={`text-xs ${
+                  isMatch(item)   ? 'text-amber-600 font-semibold' :
+                  isSimilar(item) ? 'text-violet-600 font-medium'  :
+                  'text-slate-700'}`} title={item.product_name}>
+                  {isSimilar(item) && <span className="mr-1 text-[10px] bg-violet-100 text-violet-700 px-1 py-px rounded font-semibold">유사</span>}
                   {item.product_name}
                 </p>
-                <p className={`text-xs font-mono mt-0.5 ${isMatch(item) ? 'text-amber-500' : 'text-slate-400'}`}>
+                <p className={`text-xs font-mono mt-0.5 ${
+                  isMatch(item)   ? 'text-amber-500'  :
+                  isSimilar(item) ? 'text-violet-500' :
+                  'text-slate-400'}`}>
                   {item.barcode
                     ? <>{item.barcode.slice(0, -3)}<span className="font-bold">{item.barcode.slice(-3)}</span></>
                     : <span className="text-slate-300">-</span>}
