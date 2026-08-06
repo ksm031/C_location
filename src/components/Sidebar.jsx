@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import ErrorCard from './ErrorCard';
 import { getImgs } from '../lib/imageUtils';
-import { compareLocation, primaryLocationCode } from '../lib/utils';
+import { compareLocation, primaryLocationCode, checkOutcome } from '../lib/utils';
 
 /** 카드 대표 상품 바코드 (초과/누락 항목 중 첫 번째) */
 function repBarcode(a) {
@@ -10,7 +10,7 @@ function repBarcode(a) {
   return item?.barcode ?? null;
 }
 
-export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, onDeleteAll, loading, search, onSearchChange }) {
+export default function Sidebar({ analyses, checks, selected, onSelect, onDelete, onDeleteAll, onDeleteCompleted, loading, search, onSearchChange }) {
   const [sort, setSort] = useState('location'); // 'location' | 'reported_at'
   const [thumbs, setThumbs] = useState({});     // { barcode: dataUrl }
 
@@ -64,18 +64,17 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
     );
   }, [filtered, sort, checks]);
 
-  // 완료 건수 (ErrorCard의 completed 조건과 동일: 전체 체크 OR 하나라도 발견)
-  const completedCount = useMemo(() =>
-    analyses.filter(a => {
-      const locs = a.locations ?? [];
-      if (locs.length === 0) return false;
-      const chks = checks[a.id] ?? {};
-      const done       = locs.filter(l => chks[l.location_code]).length;
-      const foundCount = locs.filter(l => chks[l.location_code]?.result === 'found').length;
-      return done === locs.length || foundCount > 0;
-    }).length,
+  // 완료 건 (찾음 1건 이상 · 또는 전 로케이션 '없음' 확인) — 카드와 같은 판정 사용
+  const completedIds = useMemo(() =>
+    analyses
+      .filter(a => {
+        const o = checkOutcome(a.locations ?? [], checks[a.id] ?? {});
+        return o === 'found' || o === 'missing';
+      })
+      .map(a => a.id),
     [analyses, checks]
   );
+  const completedCount = completedIds.length;
   const total  = analyses.length;
   const pct    = total > 0 ? Math.round((completedCount / total) * 100) : 0;
   const allDone = total > 0 && completedCount === total;
@@ -127,6 +126,16 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-slate-400">{pct}%</span>
+              <button
+                onClick={() => onDeleteCompleted?.(completedIds)}
+                disabled={completedCount === 0}
+                title="찾음 1건 이상이거나 전 로케이션을 '없음'으로 확인한 오류를 삭제"
+                className="text-slate-400 hover:text-red-600 disabled:opacity-30 disabled:hover:text-slate-400
+                           disabled:cursor-default transition-colors"
+              >
+                완료 삭제
+              </button>
+              <span className="text-slate-200">|</span>
               <button
                 onClick={onDeleteAll}
                 className="text-red-400 hover:text-red-600 transition-colors"
