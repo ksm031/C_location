@@ -226,11 +226,22 @@ export default function Layout({ user, onLogout }) {
     await sb.from('analyses').delete().eq('id', analysisId);
   };
 
+  // ── 완료분만 삭제 (찾음 1건 이상 · 또는 전 로케이션 없음 확인) ──
+  const handleDeleteCompleted = async (ids) => {
+    if (!ids?.length) return;
+    if (!window.confirm(`완료된 ${ids.length}건을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    const idSet = new Set(ids);
+    setAnalyses(prev => prev.filter(a => !idSet.has(a.id)));
+    if (idSet.has(selected)) setSelected(null);
+    await sb.from('analyses').delete().in('id', ids);
+  };
+
   // ── 전체 삭제 (본인 등록분만) ─────────────────────────────────
   const handleDeleteAll = async () => {
     if (!window.confirm(`전체 ${analyses.length}건을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
-    await sb.from('analyses').delete().eq('created_by', user.nickname);
+    setAnalyses([]);
     setSelected(null);
+    await sb.from('analyses').delete().eq('created_by', user.nickname);
   };
 
   const selectedAnalysis = analyses.find(a => a.id === selected) ?? null;
@@ -293,6 +304,7 @@ export default function Layout({ user, onLogout }) {
             onSelect={id => { setSelected(id); setDeletedNotice(false); }}
             onDelete={handleDelete}
             onDeleteAll={handleDeleteAll}
+            onDeleteCompleted={handleDeleteCompleted}
             loading={loadingInit}
             search={search}
             onSearchChange={setSearch}
