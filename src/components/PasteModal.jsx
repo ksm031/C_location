@@ -131,6 +131,9 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [locationInput, setLocationInput] = useState(''); // 수기 진열존 입력
   const [similarOverrides, setSimilarOverrides] = useState({}); // { "리포트인덱스:바코드": bool }
   const [showAllCandidates, setShowAllCandidates] = useState(false);
+  const [checking, setChecking]     = useState(false); // 중복 검사 중
+  const [dupError, setDupError]     = useState(null);  // 전부 중복 → 진행 중지
+  const [dupSkipped, setDupSkipped] = useState([]);    // 일부 중복 → 제외하고 진행
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -240,10 +243,45 @@ export default function PasteModal({ user, onClose, onSaved }) {
       .map(code => ({ location_code: code, items: [], total_qty: 0 })),
   [locationInput]);
 
-  /* ── 파싱 ── */
-  const handleParse = () => {
+  /* ── 파싱 + 중복 검사 ──
+     이미 등록된 보고서는 저장 단계까지 가서야 알 수 있었는데,
+     그 전에 모든 뎁스를 거치는 게 시간 낭비라 파싱 직후에 걸러낸다. */
+  const handleParse = async () => {
     if (!text.trim()) return;
-    setParsed(parseText(text));
+    setDupError(null);
+    setDupSkipped([]);
+    setChecking(true);
+
+    const result = parseText(text);
+    const ids = result.reports.map(r => r.report_id).filter(Boolean);
+
+    let dupIds = new Set();
+    if (ids.length > 0) {
+      const { data, error } = await sb
+        .from('analyses')
+        .select('report_id')
+        .in('report_id', ids);
+      // 조회 실패 시엔 막지 않고 진행 (저장 단계의 23505 처리가 최종 방어)
+      if (!error) dupIds = new Set((data ?? []).map(r => r.report_id));
+    }
+
+    setChecking(false);
+
+    if (dupIds.size > 0) {
+      const fresh = result.reports.filter(r => !dupIds.has(r.report_id));
+      if (fresh.length === 0) {
+        // 전부 중복 → 진행 중지
+        setDupError([...dupIds]);
+        return;
+      }
+      // 일부만 중복 → 해당 건만 빼고 진행
+      setDupSkipped([...dupIds]);
+      setParsed({ ...result, reports: fresh });
+      setStep('preview');
+      return;
+    }
+
+    setParsed(result);
     setStep('preview');
   };
 
@@ -335,6 +373,8 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setLocationInput('');
     setSimilarOverrides({});
     setShowAllCandidates(false);
+    setDupError(null);
+    setDupSkipped([]);
   };
 
   const handleSetImg = useCallback((barcode, dataUrl) => {
@@ -388,7 +428,7 @@ export default function PasteModal({ user, onClose, onSaved }) {
               </p>
               <textarea
                 value={text}
-                onChange={e => setText(e.target.value)}
+                onChange={e => { setText(e.target.value); if (dupError) setDupError(null); }}
                 autoFocus
                 placeholder="여기에 Ctrl+V로 붙여넣기..."
                 className="flex-1 w-full border border-slate-200 rounded-xl p-4 text-sm font-mono
@@ -412,6 +452,25 @@ export default function PasteModal({ user, onClose, onSaved }) {
                   <p className="text-xs text-blue-600">{manualBarcodes.length}개 바코드 등록됨</p>
                 )}
               </div>
+
+              {/* 이미 등록된 보고서 → 여기서 중단 */}
+              {dupError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex-shrink-0">
+                  <p className="text-sm font-bold text-red-700 mb-1">
+                    이미 등록된 오류보고입니다
+                  </p>
+                  <p className="text-xs text-red-600 mb-2">
+                    아래 {dupError.length}건은 이미 목록에 있어 등록할 수 없습니다.
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {dupError.map(id => (
+                      <span key={id} className="text-xs font-mono bg-white text-red-700 border border-red-200 px-2 py-0.5 rounded">
+                        {id}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="px-6 pb-6 flex justify-end gap-2">
               <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
@@ -419,10 +478,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
               </button>
               <button
                 onClick={handleParse}
-                disabled={!text.trim()}
+                disabled={!text.trim() || checking}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                파싱하기
+                {checking ? '확인 중...' : '파싱하기'}
               </button>
             </div>
           </>
@@ -432,6 +491,20 @@ export default function PasteModal({ user, onClose, onSaved }) {
         {step === 'preview' && parsed && (
           <>
             <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {dupSkipped.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-sm font-medium text-amber-800 mb-1">
+                    이미 등록된 {dupSkipped.length}건은 제외했습니다
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {dupSkipped.map(id => (
+                      <span key={id} className="text-xs font-mono bg-white text-amber-700 border border-amber-200 px-2 py-0.5 rounded">
+                        {id}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {parsed.errors?.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <p className="text-sm font-medium text-red-700 mb-1">파싱 오류</p>

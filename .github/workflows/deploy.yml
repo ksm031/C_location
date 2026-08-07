@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # Actions 탭에서 수동 실행 (자동 배포가 안 걸렸을 때 대비)
+  workflow_dispatch:
 
 permissions:
   contents: read
