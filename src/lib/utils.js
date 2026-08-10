@@ -115,6 +115,23 @@ export const OUTCOME_STYLE = {
   none:     { bg: 'bg-white',    bar: 'bg-slate-400', badge: '',                        text: 'text-slate-600' },
 };
 
+/**
+ * 로컬 기준 날짜 키 "YYYY-MM-DD"
+ * toISOString() 은 UTC 라 KST 00~09시에 전날 날짜가 나온다.
+ * 초기화 임계값(로컬 8시)과 어긋나 하루 두 번 삭제되는 원인이었다.
+ */
+export function localDateKey(d = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** 날짜 문자열 → ISO. 파싱 불가면 null (RangeError 로 저장이 멈추는 것 방지) */
+export function toIsoOrNull(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export const REASON_STYLE = {
   SHORTAGE: {
     accent:     'border-l-blue-400',   // 카드 좌측 4px 유형 표시
@@ -127,5 +144,12 @@ export const REASON_STYLE = {
     badge:      'bg-yellow-100 text-yellow-700',
     countColor: 'text-yellow-600',
     label:      'OVERAGE',
+  },
+  // 입고 토트 상세로 등록한 건 — 초과/누락 유형이 아니므로 중립색
+  TOTE_INBOUND: {
+    accent:     'border-l-slate-400',
+    badge:      'bg-slate-100 text-slate-600',
+    countColor: 'text-slate-600',
+    label:      '입고토트',
   },
 };

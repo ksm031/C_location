@@ -81,12 +81,59 @@ CREATE POLICY "anon_all_memos"
   ON memos FOR ALL TO anon
   USING (true) WITH CHECK (true);
 
+
+-- ================================================================
+-- 5. 코드가 사용하지만 스키마에 없던 테이블 (대시보드에서 생성했던 것들)
+-- ================================================================
+CREATE TABLE IF NOT EXISTS starred_locations (
+  analysis_id   UUID REFERENCES analyses(id) ON DELETE CASCADE,
+  location_code TEXT NOT NULL,
+  starred_by    TEXT NOT NULL,
+  PRIMARY KEY (analysis_id, location_code, starred_by)
+);
+
+CREATE TABLE IF NOT EXISTS tote_memos (
+  tote_id    TEXT PRIMARY KEY,
+  memo       TEXT NOT NULL DEFAULT '',
+  updated_by TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS product_images (
+  barcode    TEXT PRIMARY KEY,
+  image_data TEXT NOT NULL,            -- base64 data URL
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE starred_locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tote_memos        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_images    ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "anon_all_starred_locations" ON starred_locations;
+DROP POLICY IF EXISTS "anon_all_tote_memos"        ON tote_memos;
+DROP POLICY IF EXISTS "anon_all_product_images"    ON product_images;
+
+CREATE POLICY "anon_all_starred_locations" ON starred_locations FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_all_tote_memos"        ON tote_memos        FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_all_product_images"    ON product_images    FOR ALL TO anon USING (true) WITH CHECK (true);
+
 -- ================================================================
 -- Realtime 활성화 (실시간 동기화)
+-- 별표·토트메모가 여기 없어서 해당 채널이 이벤트를 받지 못했다.
+-- 이미 등록된 테이블에 다시 실행하면 오류가 나므로 개별로 감싼다.
 -- ================================================================
-ALTER PUBLICATION supabase_realtime ADD TABLE analyses;
-ALTER PUBLICATION supabase_realtime ADD TABLE location_checks;
-ALTER PUBLICATION supabase_realtime ADD TABLE memos;
+DO $pub$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['analyses','location_checks','memos','starred_locations','tote_memos'] LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+       WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
+    ) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+    END IF;
+  END LOOP;
+END $pub$;
 
 -- ================================================================
 -- 기존 테이블에 컬럼 추가 (이미 테이블이 존재하는 경우 실행)

@@ -29,19 +29,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
     getImgs(barcodes).then(setThumbs);
   }, [analysis]);
 
-  if (!analysis) {
-    return (
-      <main className="flex-1 flex items-center justify-center bg-slate-50">
-        <div className="text-center text-slate-400">
-          <div className="text-5xl mb-3">📋</div>
-          <p className="text-sm">왼쪽 목록에서 오류보고를 선택하거나</p>
-          <p className="text-sm">상단 <strong>+ 붙여넣기</strong> 버튼으로 추가하세요.</p>
-        </div>
-      </main>
-    );
-  }
-
-  const a    = analysis;
+  const a    = analysis ?? {};
   const locs = a.locations ?? [];
   const done        = locs.filter(l => checks[l.location_code]).length;
   const foundCount  = locs.filter(l => checks[l.location_code]?.result === 'found').length;
@@ -123,6 +111,20 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
     return sortedLocs.filter(l => checks[l.location_code]?.result === filterBy);
   }, [sortedLocs, filterBy, checks, stars]);
 
+  // 훅을 모두 호출한 뒤에 분기해야 한다 —
+  // 보던 카드가 타 기기에서 삭제되면 같은 마운트에서 훅 수가 줄어 React 가 던진다
+  if (!analysis) {
+    return (
+      <main className="flex-1 flex items-center justify-center bg-slate-50">
+        <div className="text-center text-slate-400">
+          <div className="text-5xl mb-3">📋</div>
+          <p className="text-sm">왼쪽 목록에서 오류보고를 선택하거나</p>
+          <p className="text-sm">상단 <strong>+ 붙여넣기</strong> 버튼으로 추가하세요.</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
       {/* 모바일: 뒤로가기 + 토트번호 한 줄 */}
@@ -149,7 +151,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 md:mt-1.5 text-xs">
           {/* 위계 1: 유형 — 유일한 기본 pill */}
           <span className={`px-2 py-0.5 rounded-full font-medium ${(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).badge}`}>
-            {a.reason}
+            {(REASON_STYLE[a.reason] ?? REASON_STYLE.SHORTAGE).label}
           </span>
           {hasBothIssues && <span className="text-slate-400">+SHORTAGE</span>}
 

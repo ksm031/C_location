@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { sb } from '../lib/supabase';
 import { clearImgCache } from '../lib/imageUtils';
+import { localDateKey } from '../lib/utils';
+import { notify } from '../lib/toast';
+import ToastHost from './ToastHost';
 
 /** 배포 빌드 시각 "MM.DD HH:mm" (vite define 으로 주입) */
 const BUILD_LABEL = (() => {
@@ -26,6 +29,8 @@ export default function Layout({ user, onLogout }) {
   const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
   const [toteMemos, setToteMemos]   = useState({});   // { tote_id: memo_text }
   const [deletedNotice, setDeletedNotice] = useState(false); // 타 기기 삭제 알림
+  const [loadError, setLoadError] = useState(null);           // 목록 로드 실패 사유
+  const loadSeq = useRef(0);                                  // 늦게 온 응답 무시용
 
   // ── 크롬 확장 사이드바에서 넘어온 붙여넣기 요청 ──
   // 텍스트를 채워 모달을 열어줄 뿐, 저장은 사용자가 확인해야 진행된다.
@@ -50,12 +55,23 @@ export default function Layout({ user, onLogout }) {
 
   // ── 전체 데이터 로드 (analyses → checks + stars 병렬) ────────
   const loadAll = useCallback(async () => {
+    // 늦게 도착한 응답이 최신 상태를 덮어쓰지 않도록 순번을 매긴다
+    const seq = ++loadSeq.current;
+    const isStale = () => seq !== loadSeq.current;
+
     const { data, error } = await sb
       .from('analyses')
       .select('*')
       .eq('created_by', user.nickname)
       .order('reported_at', { ascending: false });
-    if (error || !data) return;
+
+    if (isStale()) return;
+    if (error || !data) {
+      // 로드 실패를 '데이터 없음' 과 구분 (빈 목록 문구가 오해를 부름)
+      setLoadError(error?.message ?? '목록을 불러오지 못했습니다');
+      return;
+    }
+    setLoadError(null);
     setAnalyses(data);
 
     const ids = data.map(r => r.id);
@@ -68,6 +84,8 @@ export default function Layout({ user, onLogout }) {
         .in('analysis_id', ids)
         .eq('starred_by', user.nickname),
     ]);
+
+    if (isStale()) return;
 
     if (!checksRes.error && checksRes.data) {
       const map = {};
@@ -92,6 +110,7 @@ export default function Layout({ user, onLogout }) {
     }
 
     const memosRes = await sb.from('tote_memos').select('tote_id, memo');
+    if (isStale()) return;
     if (!memosRes.error && memosRes.data) {
       const map = {};
       for (const row of memosRes.data) map[row.tote_id] = row.memo;
@@ -104,8 +123,10 @@ export default function Layout({ user, onLogout }) {
     const init = async () => {
       // 오전 8시가 지났고 오늘 아직 초기화하지 않은 경우 DB 전체 삭제
       // 초기화 여부를 Supabase에 저장 → 모든 기기에서 공유
+      // 로컬 날짜를 써야 한다 — UTC 로 하면 KST 00~09시에 전날 키가 나와
+      // 8시 임계값과 어긋나고, 간격이 벌어진 날엔 하루 두 번 삭제된다
       const now      = new Date();
-      const todayKey = now.toISOString().slice(0, 10); // e.g. "2026-02-28"
+      const todayKey = localDateKey(now);
       const resetAt  = new Date(now); resetAt.setHours(8, 0, 0, 0);
 
       if (now >= resetAt) {
@@ -114,19 +135,32 @@ export default function Layout({ user, onLogout }) {
           .select('value')
           .eq('key', 'daily_reset_date')
           .maybeSingle();
+        const prevValue = setting?.value ?? '';
 
-        if (setting?.value !== todayKey) {
+        if (prevValue !== todayKey) {
           // 날짜를 먼저 기록해 다른 기기의 중복 실행을 억제
           await sb.from('app_settings')
             .upsert({ key: 'daily_reset_date', value: todayKey });
-          // starred_locations 먼저 삭제 (CASCADE 미보장 대비, created_at 없으므로 analysis_id 기준)
-          await sb.from('starred_locations').delete().not('analysis_id', 'is', null);
-          // analyses 삭제 → location_checks 는 ON DELETE CASCADE 로 자동 삭제
-          await sb.from('analyses').delete().gte('created_at', '1970-01-01');
-          // 토트 메모 삭제
-          await sb.from('tote_memos').delete().not('tote_id', 'is', null);
-          // 상품 이미지 삭제
-          await sb.from('product_images').delete().not('barcode', 'is', null);
+
+          // starred_locations 먼저 (CASCADE 미보장 대비) → analyses(체크는 CASCADE)
+          //   → 토트메모 → 공용메모 → 상품이미지
+          const results = await Promise.all([
+            sb.from('starred_locations').delete().not('analysis_id', 'is', null),
+            sb.from('analyses').delete().gte('created_at', '1970-01-01'),
+            sb.from('tote_memos').delete().not('tote_id', 'is', null),
+            sb.from('memos').delete().not('id', 'is', null),
+            sb.from('product_images').delete().not('barcode', 'is', null),
+          ]);
+          const failed = results.filter(r => r.error);
+
+          if (failed.length > 0) {
+            // 일부만 지워진 채 날짜가 기록되면 하루 종일 어중간한 상태로 굳는다.
+            // 날짜를 되돌려 다음 접속자가 다시 시도하게 한다.
+            await sb.from('app_settings')
+              .upsert({ key: 'daily_reset_date', value: prevValue });
+            notify('일일 초기화가 완료되지 못했습니다. 새로고침해 주세요.');
+            console.error('초기화 실패:', failed.map(r => r.error.message));
+          }
           clearImgCache();
         }
       }
@@ -137,29 +171,33 @@ export default function Layout({ user, onLogout }) {
 
     init();
 
+    // Realtime 이벤트가 몰릴 때 전체 재조회가 연달아 도는 것을 막는다
+    let t = null;
+    const reload = () => { clearTimeout(t); t = setTimeout(loadAll, 300); };
+
     const ch1 = sb.channel('analyses-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, reload)
       .subscribe();
 
     const ch2 = sb.channel('checks-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'location_checks' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'location_checks' }, reload)
       .subscribe();
 
     const ch3 = sb.channel('stars-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'starred_locations' }, reload)
       .subscribe();
 
-    const ch4 = sb.channel('memos-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tote_memos' }, loadAll)
+    const ch4 = sb.channel('tote-memos-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tote_memos' }, reload)
       .subscribe();
 
-    return () => { sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); sb.removeChannel(ch4); };
+    return () => { clearTimeout(t); sb.removeChannel(ch1); sb.removeChannel(ch2); sb.removeChannel(ch3); sb.removeChannel(ch4); };
   }, [loadAll]);
 
   // ── 체크 결과 저장/업데이트 ───────────────────────────────────
   const handleCheck = async (analysisId, locationCode, result) => {
     if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
-    // 낙관적 업데이트
+    const before = checks;                                 // 실패 시 되돌릴 상태
     setChecks(prev => ({
       ...prev,
       [analysisId]: {
@@ -168,15 +206,17 @@ export default function Layout({ user, onLogout }) {
       },
     }));
 
-    await sb.from('location_checks').upsert(
+    const { error } = await sb.from('location_checks').upsert(
       { analysis_id: analysisId, location_code: locationCode, result, checked_by: user.nickname },
       { onConflict: 'analysis_id,location_code' }
     );
+    if (error) { setChecks(before); notify('체크 저장 실패 — 다시 눌러 주세요'); }
   };
 
   // ── 체크 취소 ─────────────────────────────────────────────────
   const handleUncheck = async (analysisId, locationCode) => {
     if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
+    const before = checks;
     setChecks(prev => {
       const copy = { ...prev };
       if (copy[analysisId]) {
@@ -186,57 +226,64 @@ export default function Layout({ user, onLogout }) {
       }
       return copy;
     });
-    await sb.from('location_checks')
+    const { error } = await sb.from('location_checks')
       .delete()
       .eq('analysis_id', analysisId)
       .eq('location_code', locationCode);
+    if (error) { setChecks(before); notify('체크 취소 실패 — 다시 시도해 주세요'); }
   };
 
   // ── 관심 로케이션 토글 ────────────────────────────────────────
   const handleStarToggle = async (analysisId, locationCode) => {
     if (!analyses.some(a => a.id === analysisId)) return; // 타 기기 삭제 방어
     const isStarred = !!stars[analysisId]?.[locationCode];
-    // 낙관적 업데이트
+    const before = stars;
     setStars(prev => {
       const aStars = { ...prev[analysisId] };
       if (isStarred) delete aStars[locationCode];
       else aStars[locationCode] = true;
       return { ...prev, [analysisId]: aStars };
     });
-    if (isStarred) {
-      await sb.from('starred_locations')
-        .delete()
-        .eq('analysis_id', analysisId)
-        .eq('location_code', locationCode)
-        .eq('starred_by', user.nickname);
-    } else {
-      await sb.from('starred_locations').upsert(
-        { analysis_id: analysisId, location_code: locationCode, starred_by: user.nickname },
-        { onConflict: 'analysis_id,location_code,starred_by' }
-      );
-    }
+    const { error } = isStarred
+      ? await sb.from('starred_locations')
+          .delete()
+          .eq('analysis_id', analysisId)
+          .eq('location_code', locationCode)
+          .eq('starred_by', user.nickname)
+      : await sb.from('starred_locations').upsert(
+          { analysis_id: analysisId, location_code: locationCode, starred_by: user.nickname },
+          { onConflict: 'analysis_id,location_code,starred_by' }
+        );
+    if (error) { setStars(before); notify('관심 표시 저장 실패'); }
   };
 
   // ── 토트 메모 저장 ────────────────────────────────────────────
   const handleMemoSave = async (toteId, text) => {
+    if (!toteId) { notify('토트번호가 없어 메모를 저장할 수 없습니다'); return; }
+    const before = toteMemos;
     setToteMemos(prev => ({ ...prev, [toteId]: text }));
-    await sb.from('tote_memos').upsert(
+    const { error } = await sb.from('tote_memos').upsert(
       { tote_id: toteId, memo: text, updated_by: user.nickname, updated_at: new Date().toISOString() },
       { onConflict: 'tote_id' }
     );
+    if (error) { setToteMemos(before); notify('메모 저장 실패 — 내용을 복사해 두세요'); }
   };
 
   const handleMemoDelete = async (toteId) => {
+    const before = toteMemos;
     setToteMemos(prev => { const c = { ...prev }; delete c[toteId]; return c; });
-    await sb.from('tote_memos').delete().eq('tote_id', toteId);
+    const { error } = await sb.from('tote_memos').delete().eq('tote_id', toteId);
+    if (error) { setToteMemos(before); notify('메모 삭제 실패'); }
   };
 
   // ── 삭제 ──────────────────────────────────────────────────────
   const handleDelete = async (analysisId) => {
     if (!window.confirm('이 오류보고를 목록에서 삭제할까요?')) return;
+    const before = analyses;
     setAnalyses(prev => prev.filter(a => a.id !== analysisId));
     if (selected === analysisId) setSelected(null);
-    await sb.from('analyses').delete().eq('id', analysisId);
+    const { error } = await sb.from('analyses').delete().eq('id', analysisId);
+    if (error) { setAnalyses(before); notify('삭제 실패 — 다시 시도해 주세요'); }
   };
 
   // ── 완료분만 삭제 (찾음 1건 이상 · 또는 전 로케이션 없음 확인) ──
@@ -244,17 +291,21 @@ export default function Layout({ user, onLogout }) {
     if (!ids?.length) return;
     if (!window.confirm(`완료된 ${ids.length}건을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
     const idSet = new Set(ids);
+    const before = analyses;
     setAnalyses(prev => prev.filter(a => !idSet.has(a.id)));
     if (idSet.has(selected)) setSelected(null);
-    await sb.from('analyses').delete().in('id', ids);
+    const { error } = await sb.from('analyses').delete().in('id', ids);
+    if (error) { setAnalyses(before); notify('삭제 실패 — 다시 시도해 주세요'); }
   };
 
   // ── 전체 삭제 (본인 등록분만) ─────────────────────────────────
   const handleDeleteAll = async () => {
     if (!window.confirm(`전체 ${analyses.length}건을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    const before = analyses;
     setAnalyses([]);
     setSelected(null);
-    await sb.from('analyses').delete().eq('created_by', user.nickname);
+    const { error } = await sb.from('analyses').delete().eq('created_by', user.nickname);
+    if (error) { setAnalyses(before); notify('전체 삭제 실패 — 다시 시도해 주세요'); }
   };
 
   const selectedAnalysis = analyses.find(a => a.id === selected) ?? null;
@@ -263,6 +314,7 @@ export default function Layout({ user, onLogout }) {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-slate-100">
+      <ToastHost />
       {/* ── 상단 헤더 ── */}
       <header className="flex items-center justify-between px-3 md:px-5 py-2 md:py-3 bg-white/95 backdrop-blur border-b border-slate-200 flex-shrink-0 shadow-sm">
         {/* 제목은 일반 텍스트 — 버튼이면 바로 아래 '← 목록' 과 겹쳐 오터치가 남 */}
@@ -327,6 +379,8 @@ export default function Layout({ user, onLogout }) {
             onDeleteAll={handleDeleteAll}
             onDeleteCompleted={handleDeleteCompleted}
             loading={loadingInit}
+            loadError={loadError}
+            onRetry={loadAll}
             search={search}
             onSearchChange={setSearch}
           />
