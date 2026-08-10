@@ -11,6 +11,10 @@
     "scrape-and-register": {
       "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" },
       "description": "현재 탭 내용을 긁어 사이드바에 등록"
+    },
+    "scrape-and-open": {
+      "suggested_key": { "default": "Ctrl+Shift+S", "mac": "Command+Shift+S" },
+      "description": "이미 등록된 건이면 진행 상황 열기"
     }
   }
 }
