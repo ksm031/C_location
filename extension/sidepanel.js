@@ -1,8 +1,9 @@
 /**
  * 사이드바: 앱을 iframe 으로 띄우고, 배경에서 긁어온 텍스트를 앱으로 전달한다.
  *
- * 앱은 postMessage 로 { type: 'PS_PASTE_TEXT', text } 를 받으면
- * 붙여넣기 모달을 열고 자동으로 파싱한다.
+ * 앱은 postMessage 로 { type: 'PS_PASTE_TEXT', text, intent } 를 받는다.
+ *   intent 'register' — 붙여넣기 모달을 열고 자동 파싱
+ *   intent 'open'     — 이미 등록된 건이면 그 진행 상황을 연다
  */
 
 const APP_ORIGIN = 'https://ksm031.github.io';
@@ -22,13 +23,13 @@ const showStatus = (msg) => {
 };
 
 /** 앱으로 텍스트 전달 (iframe 이 아직 안 떴으면 로드 후 재시도) */
-function sendToApp(text) {
+function sendToApp(text, intent = 'register') {
   lastText = text;
   if (!text.trim()) { showStatus('페이지에서 읽어온 내용이 없습니다'); return; }
 
   const post = () => {
-    iframe.contentWindow?.postMessage({ type: 'PS_PASTE_TEXT', text }, APP_ORIGIN);
-    showStatus(`${text.length.toLocaleString()}자 전달됨`);
+    iframe.contentWindow?.postMessage({ type: 'PS_PASTE_TEXT', text, intent }, APP_ORIGIN);
+    showStatus(intent === 'open' ? '진행 상황 조회 중...' : `${text.length.toLocaleString()}자 전달됨`);
   };
 
   if (appReady) post();
@@ -56,7 +57,7 @@ copyBtn?.addEventListener('click', async () => {
 
 // 1) 사이드바가 이미 열려 있을 때: 배경에서 보낸 메시지 수신
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg?.type === 'PS_PASTE') sendToApp(msg.text ?? '');
+  if (msg?.type === 'PS_PASTE') sendToApp(msg.text ?? '', msg.intent);
 });
 
 // 2) 사이드바가 방금 열렸을 때: 배경이 미리 적어둔 내용을 읽어감
@@ -64,6 +65,6 @@ chrome.storage.local.get('pendingPaste').then(({ pendingPaste }) => {
   if (!pendingPaste) return;
   // 오래된 잔재는 무시 (30초)
   if (Date.now() - (pendingPaste.at ?? 0) > 30_000) return;
-  sendToApp(pendingPaste.text ?? '');
+  sendToApp(pendingPaste.text ?? '', pendingPaste.intent);
   chrome.storage.local.remove('pendingPaste');
 });

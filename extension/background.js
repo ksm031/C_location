@@ -6,7 +6,11 @@
  * 메시지도 함께 보낸다(이미 열려 있으면 즉시 반영).
  */
 
-const COMMAND = 'scrape-and-register';
+/** 단축키 → 의도 매핑 */
+const INTENTS = {
+  'scrape-and-register': 'register', // Ctrl+Shift+Y — 새로 등록
+  'scrape-and-open':     'open',     // Ctrl+Shift+S — 이미 등록됐으면 진행 상황 열기
+};
 
 /** 툴바 아이콘 클릭으로도 사이드바가 열리게 */
 chrome.runtime.onInstalled.addListener(() => {
@@ -14,7 +18,8 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
-  if (command !== COMMAND) return;
+  const intent = INTENTS[command];
+  if (!intent) return;
 
   const target = tab?.id
     ? tab
@@ -43,7 +48,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   }
 
   // 3) 사이드바로 전달
-  const payload = { text, sourceUrl: target.url ?? '', at: Date.now() };
+  const payload = { text, intent, sourceUrl: target.url ?? '', at: Date.now() };
   await chrome.storage.local.set({ pendingPaste: payload });
   chrome.runtime.sendMessage({ type: 'PS_PASTE', ...payload }).catch(() => {
     // 사이드바가 아직 안 떠 있으면 storage 로 전달되므로 무시

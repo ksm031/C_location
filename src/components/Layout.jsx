@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { sb } from '../lib/supabase';
+import { parseText } from '../lib/parser';
 import { clearImgCache } from '../lib/imageUtils';
 import { localDateKey } from '../lib/utils';
 import { notify } from '../lib/toast';
@@ -23,6 +24,7 @@ export default function Layout({ user, onLogout }) {
   const [selected, setSelected]     = useState(null); // 선택된 analysis_id
   const [showPaste, setShowPaste] = useState(false);
   const [pasteSeed, setPasteSeed] = useState(''); // 확장 프로그램이 넘겨준 초기 텍스트
+  const [pendingOpen, setPendingOpen] = useState(null); // 확장의 '진행 상황 열기' 보류 요청
   const [showMemo, setShowMemo]   = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
@@ -32,17 +34,44 @@ export default function Layout({ user, onLogout }) {
   const [loadError, setLoadError] = useState(null);           // 목록 로드 실패 사유
   const loadSeq = useRef(0);                                  // 늦게 온 응답 무시용
 
-  // ── 크롬 확장 사이드바에서 넘어온 붙여넣기 요청 ──
-  // 텍스트를 채워 모달을 열어줄 뿐, 저장은 사용자가 확인해야 진행된다.
+  // ── 크롬 확장 사이드바에서 넘어온 요청 ──
+  //   intent 'register' — 텍스트를 채워 붙여넣기 모달을 연다 (저장은 사용자 확인)
+  //   intent 'open'     — 이미 등록된 건이면 그 진행 상황을 연다
   useEffect(() => {
     const onMessage = (e) => {
       if (e.data?.type !== 'PS_PASTE_TEXT' || typeof e.data.text !== 'string') return;
-      setPasteSeed(e.data.text);
+      const { text, intent } = e.data;
+
+      if (intent === 'open') {
+        const ids = parseText(text).reports.map(r => r.report_id).filter(Boolean);
+        if (ids.length === 0) { notify('이 화면에서 보고번호를 찾지 못했습니다'); return; }
+        // 목록이 아직 안 왔을 수 있어 요청을 보류해 두고 아래 effect 가 처리한다
+        setPendingOpen({ ids, text });
+        return;
+      }
+
+      setPasteSeed(text);
       setShowPaste(true);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, []);
+
+  // 보류된 '진행 상황 열기' 요청 처리 (목록이 준비되면 실행)
+  useEffect(() => {
+    if (!pendingOpen || loadingInit) return;
+    const hit = analyses.find(a => pendingOpen.ids.includes(a.report_id));
+    setPendingOpen(null);
+    if (hit) {
+      setSelected(hit.id);
+      setDeletedNotice(false);
+      return;
+    }
+    // 등록 기록이 없으면 곧바로 등록 화면으로 — 다음 행동이 등록일 가능성이 높다
+    notify('등록된 기록이 없어 등록 화면을 엽니다', 'info');
+    setPasteSeed(pendingOpen.text);
+    setShowPaste(true);
+  }, [pendingOpen, analyses, loadingInit]);
 
   // ── 타 기기 삭제 감지: analyses 갱신 시 selected가 목록에 없으면 자동 해제 ──
   useEffect(() => {
