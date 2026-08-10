@@ -28,6 +28,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      # 크롬 확장을 zip 으로 묶어 사이트에서 받을 수 있게 함
+      # (압축 해제하면 extension/ 폴더가 나와 '압축해제된 확장 로드' 에 바로 사용)
+      - name: Package Chrome extension
+        run: zip -r dist/extension.zip extension -x '*.DS_Store'
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
