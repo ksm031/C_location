@@ -1,9 +1,18 @@
-import { cardDate, REASON_STYLE, activeLocations, checkOutcome, OUTCOME_STYLE } from '../lib/utils';
+import { cardDate, REASON_STYLE, activeLocations, checkOutcome, OUTCOME_STYLE, compareLocation } from '../lib/utils';
 
-/** 66-42C7-62-201 → 42C7-62 (66- 제거 후 앞 2단계) */
-function shortLoc(code) {
-  const parts = code.replace(/^66-/, '').split('-');
-  return parts.slice(0, 2).join('-');
+/** 66-42C7-62-201 → 42C7-62-201 */
+const shortLoc = (code) => code.replace(/^66-/, '');
+
+/**
+ * 범위 끝 코드에서 시작 코드와 겹치는 앞부분을 생략
+ * ("41B5-36-101", "41B5-36-402") → "402"
+ */
+function tailDiff(from, to) {
+  const a = from.split('-');
+  const b = to.split('-');
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i > 0 ? b.slice(i).join('-') : to;
 }
 
 export default function ErrorCard({ analysis, checks, selected, onSelect, onDelete, thumb }) {
@@ -50,11 +59,13 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
     ? `누락 ${sum}${a.sys_qty}개`
     : `초과 ${sum}${overageQty}개`;
 
-  // 대표 로케이션 (축약 + 중복 제거, 최대 3개)
-  // '없음'으로 확인한 곳은 제외 → 다음으로 빠른 로케이션이 앞에 온다
-  const locCodes  = [...new Set(activeLocations(locs, checks).map(l => shortLoc(l.location_code)))];
-  const shownLocs = locCodes.slice(0, 3);
-  const extraLocs = locCodes.length - shownLocs.length;
+  // 로케이션 범위: 가장 빠른 곳 ~ 가장 늦은 곳
+  // '없음'으로 확인한 곳은 제외 → 남은 구간만 보여준다
+  const locCodes = [...new Set(activeLocations(locs, checks).map(l => l.location_code))]
+    .sort(compareLocation)
+    .map(shortLoc);
+  const fromLoc = locCodes[0] ?? null;
+  const toLoc   = locCodes.length > 1 ? locCodes[locCodes.length - 1] : null;
 
   return (
     <div
@@ -97,10 +108,16 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       </div>
 
       {/* 행 2: 대표 로케이션 (볼드) */}
-      {shownLocs.length > 0 ? (
-        <div className="text-xs font-bold font-mono text-slate-700 truncate">
-          {shownLocs.join('  ')}
-          {extraLocs > 0 && <span className="text-slate-400 font-normal ml-1">+{extraLocs}</span>}
+      {fromLoc ? (
+        <div className="text-xs font-bold font-mono text-slate-700 truncate"
+             title={locCodes.join('\n')}>
+          {fromLoc}
+          {toLoc && (
+            <>
+              <span className="text-slate-400 font-normal mx-1">~</span>
+              {tailDiff(fromLoc, toLoc)}
+            </>
+          )}
         </div>
       ) : (
         <p className="text-xs text-slate-400 italic">진열 로케이션 없음</p>

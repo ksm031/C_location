@@ -7,6 +7,34 @@ import { findSimilarBarcodes } from '../lib/similarity';
 /** DB 마이그레이션이 아직 안 된 서버에서 빼고 재시도할 컬럼 */
 const OPTIONAL_COLS = ['similar_items', 'inbound_worker'];
 
+/**
+ * 여러 건을 한 번에 저장. 왕복을 1회로 줄이는 게 목적이라
+ * 실패했을 때만 원인을 좁혀 가며 되돌린다.
+ *   1) 컬럼 부재 → 그 컬럼을 전부에서 빼고 배치 재시도
+ *   2) 그래도 실패(중복 등) → 건별로 저장해 성공/스킵을 가른다
+ */
+async function insertRows(rows) {
+  let batch = rows;
+  let { error } = await sb.from('analyses').insert(batch);
+
+  for (let i = 0; i < OPTIONAL_COLS.length && error; i++) {
+    const missing = OPTIONAL_COLS.find(c => (error.message ?? '').includes(c));
+    if (!missing) break;
+    batch = batch.map(({ [missing]: _drop, ...rest }) => rest);
+    ({ error } = await sb.from('analyses').insert(batch));
+  }
+  if (!error) return { saved: batch.length, skipped: 0 };
+
+  let saved = 0, skipped = 0;
+  for (const row of batch) {
+    const { error: e } = await sb.from('analyses').insert(row);
+    if (!e) saved++;
+    else if (e.code === '23505') skipped++;
+    else console.error('저장 오류:', e.message);
+  }
+  return { saved, skipped };
+}
+
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
 function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange, qtyEditable, autoMatched }) {
   const inputRef = useRef(null);
@@ -118,7 +146,7 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
 }
 
 /* ── 메인 컴포넌트 ────────────────────────────────────── */
-export default function PasteModal({ user, onClose, onSaved }) {
+export default function PasteModal({ user, existingReportIds = [], onClose, onSaved }) {
   const [text, setText]             = useState('');
   const [manualInput, setManualInput] = useState(''); // 수기 바코드 입력
   const [parsed, setParsed]         = useState(null);
@@ -131,9 +159,12 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [locationInput, setLocationInput] = useState(''); // 수기 진열존 입력
   const [similarOverrides, setSimilarOverrides] = useState({}); // { "리포트인덱스:바코드": bool }
   const [showAllCandidates, setShowAllCandidates] = useState(false);
-  const [checking, setChecking]     = useState(false); // 중복 검사 중
   const [dupError, setDupError]     = useState(null);  // 전부 중복 → 진행 중지
   const [dupSkipped, setDupSkipped] = useState([]);    // 일부 중복 → 제외하고 진행
+  const parseSeq = useRef(0);                          // 백그라운드 중복 조회의 구식 응답 무시용
+
+  /* 이미 등록된 보고번호 (즉시 판정용) */
+  const existingIdSet = useMemo(() => new Set(existingReportIds), [existingReportIds]);
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -244,53 +275,60 @@ export default function PasteModal({ user, onClose, onSaved }) {
   [locationInput]);
 
   /* ── 파싱 + 중복 검사 ──
-     이미 등록된 보고서는 저장 단계까지 가서야 알 수 있었는데,
-     그 전에 모든 뎁스를 거치는 게 시간 낭비라 파싱 직후에 걸러낸다. */
-  const handleParse = async () => {
+     저장 단계까지 가서야 중복을 알려주던 걸 앞으로 당긴 것.
+     다만 네트워크를 기다리면 버튼이 멈칫하므로,
+       1) 이미 불러와 둔 목록으로 즉시 판정하고 화면을 넘긴 뒤
+       2) 다른 작업자가 등록한 건은 백그라운드로 확인해 보완한다. */
+  const handleParse = () => {
     if (!text.trim()) return;
     setDupError(null);
     setDupSkipped([]);
-    setChecking(true);
 
     const result = parseText(text);
     const ids = result.reports.map(r => r.report_id).filter(Boolean);
 
-    let dupIds = new Set();
-    if (ids.length > 0) {
-      const { data, error } = await sb
-        .from('analyses')
-        .select('report_id')
-        .in('report_id', ids);
-      // 조회 실패 시엔 막지 않고 진행 (저장 단계의 23505 처리가 최종 방어)
-      if (!error) dupIds = new Set((data ?? []).map(r => r.report_id));
-    }
-
-    setChecking(false);
-
-    if (dupIds.size > 0) {
-      const fresh = result.reports.filter(r => !dupIds.has(r.report_id));
+    // 1) 내 목록에 이미 있는 건 — 네트워크 대기 없이 판정
+    const localDup = ids.filter(id => existingIdSet.has(id));
+    if (localDup.length > 0) {
+      const fresh = result.reports.filter(r => !localDup.includes(r.report_id));
       if (fresh.length === 0) {
-        // 전부 중복 → 진행 중지
-        setDupError([...dupIds]);
+        setDupError(localDup);   // 전부 중복 → 진행 중지
         return;
       }
-      // 일부만 중복 → 해당 건만 빼고 진행
-      setDupSkipped([...dupIds]);
+      setDupSkipped(localDup);   // 일부만 중복 → 그 건만 제외
       setParsed({ ...result, reports: fresh });
-      setStep('preview');
-      return;
+    } else {
+      setParsed(result);
     }
-
-    setParsed(result);
     setStep('preview');
+
+    // 2) 다른 기기에서 등록한 건 확인 (화면은 이미 넘어간 뒤)
+    //    중복은 등록자 기준이므로 본인 것만 조회 — 남이 올린 같은 보고서는 별개로 등록 가능
+    const remaining = ids.filter(id => !localDup.includes(id));
+    if (remaining.length === 0) return;
+    const seq = ++parseSeq.current;
+    sb.from('analyses').select('report_id')
+      .in('report_id', remaining)
+      .eq('created_by', user.nickname)
+      .then(({ data, error }) => {
+        if (error || seq !== parseSeq.current) return;   // 실패·구식 응답은 무시
+        const remoteDup = (data ?? []).map(r => r.report_id);
+        if (remoteDup.length === 0) return;
+        setDupSkipped(prev => [...new Set([...prev, ...remoteDup])]);
+        setParsed(prev => prev && ({
+          ...prev,
+          reports: prev.reports.filter(r => !remoteDup.includes(r.report_id)),
+        }));
+      });
   };
 
-  /* ── 저장 (이미지 → DB, 분석 → DB) ── */
+  /* ── 저장 (이미지·분석을 병렬로) ── */
   const handleSave = async () => {
     if (!parsed?.reports?.length) return;
     setSaving(true);
 
-    await Promise.all(
+    // 이미지 업로드는 분석 저장과 독립적이라 먼저 띄워두고 끝에서 함께 기다린다
+    const imgPromise = Promise.all(
       Object.entries(images)
         .filter(([, dataUrl]) => dataUrl)
         .map(([barcode, dataUrl]) => saveImg(barcode, dataUrl))
@@ -315,10 +353,9 @@ export default function PasteModal({ user, onClose, onSaved }) {
       }
     });
 
-    let saved = 0, skipped = 0;
-    for (const [ri, r] of parsed.reports.entries()) {
+    const rows = parsed.reports.map((r, ri) => {
       const candidates = candidatesByReport[ri] ?? [];
-      const row = {
+      return {
         report_id:   r.report_id,
         reported_at: r.reported_at ? new Date(r.reported_at).toISOString() : null,
         reason:      r.reason,
@@ -337,29 +374,14 @@ export default function PasteModal({ user, onClose, onSaved }) {
           : null,
         created_by:           user.nickname,
       };
+    });
 
-      // 마이그레이션 전 서버면 없는 컬럼을 하나씩 빼며 재시도
-      let attempt = { ...row };
-      let { error } = await sb.from('analyses').insert(attempt);
-      for (let i = 0; i < OPTIONAL_COLS.length && error; i++) {
-        const missing = OPTIONAL_COLS.find(c => c in attempt && (error.message ?? '').includes(c));
-        if (!missing) break;
-        delete attempt[missing];
-        ({ error } = await sb.from('analyses').insert(attempt));
-      }
-
-      if (error) {
-        if (error.code === '23505') skipped++;
-        else console.error('저장 오류:', error.message);
-      } else {
-        saved++;
-      }
-    }
+    const [{ saved, skipped }] = await Promise.all([insertRows(rows), imgPromise]);
 
     setSaving(false);
     setSaveResult({ saved, skipped });
     setStep('done');
-    if (saved > 0) setTimeout(onSaved, 1200);
+    if (saved > 0) setTimeout(onSaved, 500);
   };
 
   /* ── 뒤로 ── */
@@ -478,10 +500,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
               </button>
               <button
                 onClick={handleParse}
-                disabled={!text.trim() || checking}
+                disabled={!text.trim()}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {checking ? '확인 중...' : '파싱하기'}
+                파싱하기
               </button>
             </div>
           </>
