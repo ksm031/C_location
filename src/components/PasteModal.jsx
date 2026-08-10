@@ -7,6 +7,34 @@ import { findSimilarBarcodes } from '../lib/similarity';
 /** DB 마이그레이션이 아직 안 된 서버에서 빼고 재시도할 컬럼 */
 const OPTIONAL_COLS = ['similar_items', 'inbound_worker'];
 
+/**
+ * 여러 건을 한 번에 저장. 왕복을 1회로 줄이는 게 목적이라
+ * 실패했을 때만 원인을 좁혀 가며 되돌린다.
+ *   1) 컬럼 부재 → 그 컬럼을 전부에서 빼고 배치 재시도
+ *   2) 그래도 실패(중복 등) → 건별로 저장해 성공/스킵을 가른다
+ */
+async function insertRows(rows) {
+  let batch = rows;
+  let { error } = await sb.from('analyses').insert(batch);
+
+  for (let i = 0; i < OPTIONAL_COLS.length && error; i++) {
+    const missing = OPTIONAL_COLS.find(c => (error.message ?? '').includes(c));
+    if (!missing) break;
+    batch = batch.map(({ [missing]: _drop, ...rest }) => rest);
+    ({ error } = await sb.from('analyses').insert(batch));
+  }
+  if (!error) return { saved: batch.length, skipped: 0 };
+
+  let saved = 0, skipped = 0;
+  for (const row of batch) {
+    const { error: e } = await sb.from('analyses').insert(row);
+    if (!e) saved++;
+    else if (e.code === '23505') skipped++;
+    else console.error('저장 오류:', e.message);
+  }
+  return { saved, skipped };
+}
+
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
 function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onClear, nameEditable, onNameChange, qty, onQtyChange, qtyEditable, autoMatched }) {
   const inputRef = useRef(null);
@@ -285,12 +313,13 @@ export default function PasteModal({ user, onClose, onSaved }) {
     setStep('preview');
   };
 
-  /* ── 저장 (이미지 → DB, 분석 → DB) ── */
+  /* ── 저장 (이미지·분석을 병렬로) ── */
   const handleSave = async () => {
     if (!parsed?.reports?.length) return;
     setSaving(true);
 
-    await Promise.all(
+    // 이미지 업로드는 분석 저장과 독립적이라 먼저 띄워두고 끝에서 함께 기다린다
+    const imgPromise = Promise.all(
       Object.entries(images)
         .filter(([, dataUrl]) => dataUrl)
         .map(([barcode, dataUrl]) => saveImg(barcode, dataUrl))
@@ -315,10 +344,9 @@ export default function PasteModal({ user, onClose, onSaved }) {
       }
     });
 
-    let saved = 0, skipped = 0;
-    for (const [ri, r] of parsed.reports.entries()) {
+    const rows = parsed.reports.map((r, ri) => {
       const candidates = candidatesByReport[ri] ?? [];
-      const row = {
+      return {
         report_id:   r.report_id,
         reported_at: r.reported_at ? new Date(r.reported_at).toISOString() : null,
         reason:      r.reason,
@@ -337,29 +365,14 @@ export default function PasteModal({ user, onClose, onSaved }) {
           : null,
         created_by:           user.nickname,
       };
+    });
 
-      // 마이그레이션 전 서버면 없는 컬럼을 하나씩 빼며 재시도
-      let attempt = { ...row };
-      let { error } = await sb.from('analyses').insert(attempt);
-      for (let i = 0; i < OPTIONAL_COLS.length && error; i++) {
-        const missing = OPTIONAL_COLS.find(c => c in attempt && (error.message ?? '').includes(c));
-        if (!missing) break;
-        delete attempt[missing];
-        ({ error } = await sb.from('analyses').insert(attempt));
-      }
-
-      if (error) {
-        if (error.code === '23505') skipped++;
-        else console.error('저장 오류:', error.message);
-      } else {
-        saved++;
-      }
-    }
+    const [{ saved, skipped }] = await Promise.all([insertRows(rows), imgPromise]);
 
     setSaving(false);
     setSaveResult({ saved, skipped });
     setStep('done');
-    if (saved > 0) setTimeout(onSaved, 1200);
+    if (saved > 0) setTimeout(onSaved, 500);
   };
 
   /* ── 뒤로 ── */
