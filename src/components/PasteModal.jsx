@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { parseText } from '../lib/parser';
 import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
@@ -146,8 +146,8 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
 }
 
 /* ── 메인 컴포넌트 ────────────────────────────────────── */
-export default function PasteModal({ user, existingReportIds = [], onClose, onSaved }) {
-  const [text, setText]             = useState('');
+export default function PasteModal({ user, existingReportIds = [], initialText = '', onClose, onSaved }) {
+  const [text, setText]             = useState(initialText);
   const [manualInput, setManualInput] = useState(''); // 수기 바코드 입력
   const [parsed, setParsed]         = useState(null);
   const [saving, setSaving]         = useState(false);
@@ -279,12 +279,12 @@ export default function PasteModal({ user, existingReportIds = [], onClose, onSa
      다만 네트워크를 기다리면 버튼이 멈칫하므로,
        1) 이미 불러와 둔 목록으로 즉시 판정하고 화면을 넘긴 뒤
        2) 다른 작업자가 등록한 건은 백그라운드로 확인해 보완한다. */
-  const handleParse = () => {
-    if (!text.trim()) return;
+  const handleParse = (raw = text) => {
+    if (!raw.trim()) return;
     setDupError(null);
     setDupSkipped([]);
 
-    const result = parseText(text);
+    const result = parseText(raw);
     const ids = result.reports.map(r => r.report_id).filter(Boolean);
 
     // 1) 내 목록에 이미 있는 건 — 네트워크 대기 없이 판정
@@ -321,6 +321,14 @@ export default function PasteModal({ user, existingReportIds = [], onClose, onSa
         }));
       });
   };
+
+  /* 확장 프로그램이 텍스트를 넘겨주면 바로 파싱해 프리뷰로 (모달이 열려 있어도 갱신) */
+  useEffect(() => {
+    if (!initialText.trim()) return;
+    setText(initialText);
+    handleParse(initialText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialText]);
 
   /* ── 저장 (이미지·분석을 병렬로) ── */
   const handleSave = async () => {
@@ -499,7 +507,7 @@ export default function PasteModal({ user, existingReportIds = [], onClose, onSa
                 취소
               </button>
               <button
-                onClick={handleParse}
+                onClick={() => handleParse()}
                 disabled={!text.trim()}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
               >

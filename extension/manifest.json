@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "진열로케이션정리 빠른 등록",
+  "version": "0.1.0",
+  "description": "단축키로 현재 탭 내용을 긁어 사이드바의 진열로케이션정리에 바로 등록합니다.",
+  "permissions": ["sidePanel", "scripting", "activeTab", "storage"],
+  "action": { "default_title": "진열로케이션정리 열기" },
+  "background": { "service_worker": "background.js" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "commands": {
+    "scrape-and-register": {
+      "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" },
+      "description": "현재 탭 내용을 긁어 사이드바에 등록"
+    }
+  }
+}

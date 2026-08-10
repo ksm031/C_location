@@ -19,12 +19,25 @@ export default function Layout({ user, onLogout }) {
   const [checks, setChecks]         = useState({});   // { analysis_id: { location_code: {result, checked_by} } }
   const [selected, setSelected]     = useState(null); // 선택된 analysis_id
   const [showPaste, setShowPaste] = useState(false);
+  const [pasteSeed, setPasteSeed] = useState(''); // 확장 프로그램이 넘겨준 초기 텍스트
   const [showMemo, setShowMemo]   = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
   const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
   const [toteMemos, setToteMemos]   = useState({});   // { tote_id: memo_text }
   const [deletedNotice, setDeletedNotice] = useState(false); // 타 기기 삭제 알림
+
+  // ── 크롬 확장 사이드바에서 넘어온 붙여넣기 요청 ──
+  // 텍스트를 채워 모달을 열어줄 뿐, 저장은 사용자가 확인해야 진행된다.
+  useEffect(() => {
+    const onMessage = (e) => {
+      if (e.data?.type !== 'PS_PASTE_TEXT' || typeof e.data.text !== 'string') return;
+      setPasteSeed(e.data.text);
+      setShowPaste(true);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   // ── 타 기기 삭제 감지: analyses 갱신 시 selected가 목록에 없으면 자동 해제 ──
   useEffect(() => {
@@ -348,8 +361,9 @@ export default function Layout({ user, onLogout }) {
         <PasteModal
           user={user}
           existingReportIds={analyses.map(a => a.report_id)}
-          onClose={() => setShowPaste(false)}
-          onSaved={() => { setShowPaste(false); loadAll(); }}
+          initialText={pasteSeed}
+          onClose={() => { setShowPaste(false); setPasteSeed(''); }}
+          onSaved={() => { setShowPaste(false); setPasteSeed(''); loadAll(); }}
         />
       )}
 

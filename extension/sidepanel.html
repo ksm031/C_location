@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>진열로케이션정리</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden;
+                 font-family: Pretendard, -apple-system, system-ui, sans-serif; }
+    #app { width: 100%; height: 100%; border: 0; display: block; }
+    #fallback {
+      display: none; padding: 20px; font-size: 13px; color: #334155; line-height: 1.7;
+    }
+    #fallback code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+    #fallback a { color: #2563eb; }
+    #status {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      background: #1e293b; color: #cbd5e1; font-size: 11px;
+      padding: 5px 10px; display: none;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="app" src="https://ksm031.github.io/C_location/"></iframe>
+  <div id="fallback">
+    <p><strong>앱을 사이드바에 띄우지 못했습니다.</strong></p>
+    <p>사이트가 iframe 삽입을 거부하는 경우입니다. 긁어온 내용은 아래 버튼으로 복사해
+       <a href="https://ksm031.github.io/C_location/" target="_blank">앱</a>에 붙여넣으세요.</p>
+    <p><button id="copyBtn">긁어온 내용 복사</button></p>
+  </div>
+  <div id="status"></div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
