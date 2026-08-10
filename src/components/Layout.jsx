@@ -290,9 +290,17 @@ export default function Layout({ user, onLogout }) {
           >
             <span>+</span> 붙여넣기
           </button>
-          {/* 빌드시각: 배포 확인용 (모바일은 공간상 생략) */}
-          <span className="text-[10px] text-slate-300 hidden sm:inline font-mono" title="배포 빌드 시각">
-            {BUILD_LABEL}
+          {/* 빌드시각 + 확장 다운로드: 배포 확인용 / PC 전용, 눈에 띄지 않게 */}
+          <span className="hidden sm:flex items-center gap-2 text-[10px] text-slate-300">
+            <span className="font-mono" title="배포 빌드 시각">{BUILD_LABEL}</span>
+            <a
+              href={`${import.meta.env.BASE_URL}extension.zip`}
+              download
+              className="hover:text-blue-500 transition-colors"
+              title="크롬 확장 내려받기 — 압축을 풀고 chrome://extensions 에서 '압축해제된 확장 프로그램을 로드'"
+            >
+              확장
+            </a>
           </span>
           <span className="hidden sm:inline text-sm text-slate-500">
             <span className="font-medium text-slate-700">{user.nickname}</span>
