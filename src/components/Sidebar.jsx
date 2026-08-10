@@ -122,29 +122,32 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
             신고 시각순
           </button>
         </div>
-        <button
-          onClick={() => setOnlyOpen(v => !v)}
-          className={`w-full py-1.5 text-xs rounded-md transition-colors ${
-            onlyOpen
-              ? 'bg-slate-700 text-white font-medium'
-              : 'text-slate-500 hover:bg-slate-100'
-          }`}
-        >
-          {onlyOpen ? `미완료만 (${total - completedCount}건)` : '미완료만 보기'}
-        </button>
       </div>
 
       {/* 진행 현황 + 전체 삭제 */}
       {total > 0 && (
         <div className="px-3 py-2 border-b border-slate-100 space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className={`font-medium ${allDone ? 'text-green-600' : 'text-slate-600'}`}>
-              완료 {completedCount} / {total}건
-              {search && <span className="text-slate-400 font-normal"> ({filtered.length}건)</span>}
-              {allDone && <span className="ml-1">✓</span>}
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className={`font-medium flex-shrink-0 ${allDone ? 'text-green-600' : 'text-slate-600'}`}>
+                완료 {completedCount}/{total}
+                {allDone && <span className="ml-1">✓</span>}
+              </span>
+              {/* 미완료만 보기 — 별도 줄이 너무 커서 이 줄에 합쳤다 */}
+              <button
+                onClick={() => setOnlyOpen(v => !v)}
+                title="완료된 건을 목록에서 숨김"
+                className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                  onlyOpen
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {onlyOpen ? `미완료 ${total - completedCount}` : '미완료만'}
+              </button>
+              {search && <span className="text-slate-400 truncate">({filtered.length}건)</span>}
             </span>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400">{pct}%</span>
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => onDeleteCompleted?.(completedIds)}
                 disabled={completedCount === 0}
