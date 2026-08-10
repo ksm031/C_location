@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Barcode128 from './Barcode128';
 import { getImgs, saveImg, compressImage } from '../lib/imageUtils';
+import { localDateKey } from '../lib/utils';
 
 export default function SystemItemsPanel({ analyses, onClose }) {
-  // 오늘 날짜 기준으로 localStorage 키 생성 → 매일 자동 초기화
-  const todayKey   = new Date().toISOString().slice(0, 10);
-  const storageKey = `sys_checks_${todayKey}`;
+  // 오늘(로컬) 날짜 기준 localStorage 키 → 매일 자동 초기화
+  const storageKey = `sys_checks_${localDateKey()}`;
 
   const [checked, setChecked] = useState(() => {
     try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); }
@@ -21,14 +21,15 @@ export default function SystemItemsPanel({ analyses, onClose }) {
     for (const a of analyses) {
       for (const item of a.overage_items || []) {
         if (!item.barcode) continue;
-        list.push({ ...item, _type: 'overage', _qty: item.qty ?? item.sys_qty ?? null });
+        list.push({ ...item, _aid: a.id, _type: 'overage', _qty: item.qty ?? item.sys_qty ?? null });
       }
       for (const item of a.tote_remaining_items || []) {
         if (!item.barcode) continue;
-        list.push({ ...item, _type: 'shortage', _qty: item.sys_qty ?? item.qty ?? null });
+        list.push({ ...item, _aid: a.id, _type: 'shortage', _qty: item.sys_qty ?? item.qty ?? null });
       }
     }
-    return list.map((item, i) => ({ ...item, _key: `${item.barcode}_${i}` }));
+    // 키에 보고서 id 를 넣어야 다른 토트의 같은 바코드와 체크가 섞이지 않는다
+    return list.map((item, i) => ({ ...item, _key: `${item._aid}_${item.barcode}_${i}` }));
   })();
 
   // 상품 이미지 로드

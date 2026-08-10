@@ -3,6 +3,7 @@ import { parseText } from '../lib/parser';
 import { sb } from '../lib/supabase';
 import { compressImage, saveImg } from '../lib/imageUtils';
 import { findSimilarBarcodes } from '../lib/similarity';
+import { toIsoOrNull } from '../lib/utils';
 
 /** DB 마이그레이션이 아직 안 된 서버에서 빼고 재시도할 컬럼 */
 const OPTIONAL_COLS = ['similar_items', 'inbound_worker'];
@@ -23,16 +24,16 @@ async function insertRows(rows) {
     batch = batch.map(({ [missing]: _drop, ...rest }) => rest);
     ({ error } = await sb.from('analyses').insert(batch));
   }
-  if (!error) return { saved: batch.length, skipped: 0 };
+  if (!error) return { saved: batch.length, skipped: 0, failed: 0, reason: null };
 
-  let saved = 0, skipped = 0;
+  let saved = 0, skipped = 0, failed = 0, reason = null;
   for (const row of batch) {
     const { error: e } = await sb.from('analyses').insert(row);
     if (!e) saved++;
     else if (e.code === '23505') skipped++;
-    else console.error('저장 오류:', e.message);
+    else { failed++; reason = reason ?? e.message; console.error('저장 오류:', e.message); }
   }
-  return { saved, skipped };
+  return { saved, skipped, failed, reason };
 }
 
 /* ── 상품별 이미지 업로드 존 ──────────────────────────── */
@@ -365,7 +366,7 @@ export default function PasteModal({ user, existingReportIds = [], initialText =
       const candidates = candidatesByReport[ri] ?? [];
       return {
         report_id:   r.report_id,
-        reported_at: r.reported_at ? new Date(r.reported_at).toISOString() : null,
+        reported_at: toIsoOrNull(r.reported_at),
         reason:      r.reason,
         tote_id:     r.tote_id,
         worker:      r.worker,
@@ -384,12 +385,19 @@ export default function PasteModal({ user, existingReportIds = [], initialText =
       };
     });
 
-    const [{ saved, skipped }] = await Promise.all([insertRows(rows), imgPromise]);
-
-    setSaving(false);
-    setSaveResult({ saved, skipped });
-    setStep('done');
-    if (saved > 0) setTimeout(onSaved, 500);
+    try {
+      const [res] = await Promise.all([insertRows(rows), imgPromise]);
+      setSaveResult({ ...res, total: rows.length });
+      setStep('done');
+      // 실패가 섞였으면 사용자가 확인할 수 있게 모달을 닫지 않는다
+      if (res.saved > 0 && res.failed === 0) setTimeout(onSaved, 500);
+    } catch (e) {
+      console.error('저장 중 예외:', e);
+      setSaveResult({ saved: 0, skipped: 0, failed: rows.length, total: rows.length, reason: e.message });
+      setStep('done');
+    } finally {
+      setSaving(false);
+    }
   };
 
   /* ── 뒤로 ── */
@@ -775,16 +783,50 @@ export default function PasteModal({ user, existingReportIds = [], initialText =
           </>
         )}
 
-        {/* ── STEP 5: 완료 ── */}
+        {/* ── STEP 5: 완료 (실패가 있으면 성공으로 보이지 않게) ── */}
         {step === 'done' && saveResult && (
-          <div className="flex-1 flex flex-col items-center justify-center p-10 gap-4">
-            <div className="text-5xl">✅</div>
-            <p className="text-lg font-bold text-slate-800">저장 완료</p>
-            <div className="text-sm text-slate-600 text-center space-y-1">
-              {saveResult.saved > 0 && <p>새로 저장: <strong>{saveResult.saved}건</strong></p>}
-              {saveResult.skipped > 0 && <p className="text-slate-400">이미 등록됨 (스킵): {saveResult.skipped}건</p>}
+          <>
+            <div className="flex-1 flex flex-col items-center justify-center p-10 gap-3">
+              <div className="text-5xl">{saveResult.failed > 0 ? '⚠️' : '✅'}</div>
+              <p className={`text-lg font-bold ${saveResult.failed > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                {saveResult.failed > 0
+                  ? (saveResult.saved > 0 ? '일부만 저장되었습니다' : '저장하지 못했습니다')
+                  : '저장 완료'}
+              </p>
+              <div className="text-sm text-slate-600 text-center space-y-1">
+                {saveResult.saved > 0 && <p>새로 저장: <strong>{saveResult.saved}건</strong></p>}
+                {saveResult.skipped > 0 && <p className="text-slate-400">이미 등록됨 (스킵): {saveResult.skipped}건</p>}
+                {saveResult.failed > 0 && (
+                  <p className="text-red-600 font-medium">실패: {saveResult.failed}건</p>
+                )}
+              </div>
+              {saveResult.failed > 0 && (
+                <div className="max-w-sm text-center space-y-2">
+                  <p className="text-xs text-slate-500">
+                    네트워크 상태를 확인하고 다시 시도해 주세요. 붙여넣은 내용은 그대로 남아 있습니다.
+                  </p>
+                  {saveResult.reason && (
+                    <p className="text-[11px] text-slate-400 font-mono break-all bg-slate-50 rounded p-2">
+                      {saveResult.reason}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+            {saveResult.failed > 0 && (
+              <div className="px-6 pb-6 flex justify-end gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                  닫기
+                </button>
+                <button
+                  onClick={() => setStep('image')}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

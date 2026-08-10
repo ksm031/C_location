@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { sb } from '../lib/supabase';
+import { notify } from '../lib/toast';
 
 export default function MemoModal({ user, onClose }) {
   const [memos, setMemos]       = useState([]);
@@ -23,7 +24,7 @@ export default function MemoModal({ user, onClose }) {
   useEffect(() => {
     loadMemos();
     // Realtime 구독
-    const ch = sb.channel('memos-changes')
+    const ch = sb.channel('shared-memos-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, loadMemos)
       .subscribe();
     return () => sb.removeChannel(ch);
@@ -44,14 +45,21 @@ export default function MemoModal({ user, onClose }) {
     const trimmed = text.trim();
     if (!trimmed) return;
     setSaving(true);
-    await sb.from('memos').insert({ content: trimmed, created_by: user.nickname });
+    const { error } = await sb.from('memos').insert({ content: trimmed, created_by: user.nickname });
+    if (error) {
+      // 실패했는데 입력을 비우면 작성 내용이 복구 불가로 사라진다
+      notify('메모 저장 실패 — 내용은 그대로 두었습니다');
+      setSaving(false);
+      return;
+    }
     setText('');
     setSaving(false);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('이 메모를 삭제할까요?')) return;
-    await sb.from('memos').delete().eq('id', id);
+    const { error } = await sb.from('memos').delete().eq('id', id);
+    if (error) notify('메모 삭제 실패');
   };
 
   const handleCopy = async (m) => {
