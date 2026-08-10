@@ -146,7 +146,7 @@ function ImageZone({ barcode, itemKey, productName, skuId, dataUrl, onSet, onCle
 }
 
 /* ── 메인 컴포넌트 ────────────────────────────────────── */
-export default function PasteModal({ user, onClose, onSaved }) {
+export default function PasteModal({ user, existingReportIds = [], onClose, onSaved }) {
   const [text, setText]             = useState('');
   const [manualInput, setManualInput] = useState(''); // 수기 바코드 입력
   const [parsed, setParsed]         = useState(null);
@@ -159,9 +159,12 @@ export default function PasteModal({ user, onClose, onSaved }) {
   const [locationInput, setLocationInput] = useState(''); // 수기 진열존 입력
   const [similarOverrides, setSimilarOverrides] = useState({}); // { "리포트인덱스:바코드": bool }
   const [showAllCandidates, setShowAllCandidates] = useState(false);
-  const [checking, setChecking]     = useState(false); // 중복 검사 중
   const [dupError, setDupError]     = useState(null);  // 전부 중복 → 진행 중지
   const [dupSkipped, setDupSkipped] = useState([]);    // 일부 중복 → 제외하고 진행
+  const parseSeq = useRef(0);                          // 백그라운드 중복 조회의 구식 응답 무시용
+
+  /* 이미 등록된 보고번호 (즉시 판정용) */
+  const existingIdSet = useMemo(() => new Set(existingReportIds), [existingReportIds]);
 
   /* 수기 입력 바코드: 쉼표 구분, 공백 무시 */
   const manualBarcodes = useMemo(() => {
@@ -272,45 +275,48 @@ export default function PasteModal({ user, onClose, onSaved }) {
   [locationInput]);
 
   /* ── 파싱 + 중복 검사 ──
-     이미 등록된 보고서는 저장 단계까지 가서야 알 수 있었는데,
-     그 전에 모든 뎁스를 거치는 게 시간 낭비라 파싱 직후에 걸러낸다. */
-  const handleParse = async () => {
+     저장 단계까지 가서야 중복을 알려주던 걸 앞으로 당긴 것.
+     다만 네트워크를 기다리면 버튼이 멈칫하므로,
+       1) 이미 불러와 둔 목록으로 즉시 판정하고 화면을 넘긴 뒤
+       2) 다른 작업자가 등록한 건은 백그라운드로 확인해 보완한다. */
+  const handleParse = () => {
     if (!text.trim()) return;
     setDupError(null);
     setDupSkipped([]);
-    setChecking(true);
 
     const result = parseText(text);
     const ids = result.reports.map(r => r.report_id).filter(Boolean);
 
-    let dupIds = new Set();
-    if (ids.length > 0) {
-      const { data, error } = await sb
-        .from('analyses')
-        .select('report_id')
-        .in('report_id', ids);
-      // 조회 실패 시엔 막지 않고 진행 (저장 단계의 23505 처리가 최종 방어)
-      if (!error) dupIds = new Set((data ?? []).map(r => r.report_id));
-    }
-
-    setChecking(false);
-
-    if (dupIds.size > 0) {
-      const fresh = result.reports.filter(r => !dupIds.has(r.report_id));
+    // 1) 내 목록에 이미 있는 건 — 네트워크 대기 없이 판정
+    const localDup = ids.filter(id => existingIdSet.has(id));
+    if (localDup.length > 0) {
+      const fresh = result.reports.filter(r => !localDup.includes(r.report_id));
       if (fresh.length === 0) {
-        // 전부 중복 → 진행 중지
-        setDupError([...dupIds]);
+        setDupError(localDup);   // 전부 중복 → 진행 중지
         return;
       }
-      // 일부만 중복 → 해당 건만 빼고 진행
-      setDupSkipped([...dupIds]);
+      setDupSkipped(localDup);   // 일부만 중복 → 그 건만 제외
       setParsed({ ...result, reports: fresh });
-      setStep('preview');
-      return;
+    } else {
+      setParsed(result);
     }
-
-    setParsed(result);
     setStep('preview');
+
+    // 2) 다른 기기·작업자가 등록한 건 확인 (화면은 이미 넘어간 뒤)
+    const remaining = ids.filter(id => !localDup.includes(id));
+    if (remaining.length === 0) return;
+    const seq = ++parseSeq.current;
+    sb.from('analyses').select('report_id').in('report_id', remaining)
+      .then(({ data, error }) => {
+        if (error || seq !== parseSeq.current) return;   // 실패·구식 응답은 무시
+        const remoteDup = (data ?? []).map(r => r.report_id);
+        if (remoteDup.length === 0) return;
+        setDupSkipped(prev => [...new Set([...prev, ...remoteDup])]);
+        setParsed(prev => prev && ({
+          ...prev,
+          reports: prev.reports.filter(r => !remoteDup.includes(r.report_id)),
+        }));
+      });
   };
 
   /* ── 저장 (이미지·분석을 병렬로) ── */
@@ -491,10 +497,10 @@ export default function PasteModal({ user, onClose, onSaved }) {
               </button>
               <button
                 onClick={handleParse}
-                disabled={!text.trim() || checking}
+                disabled={!text.trim()}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {checking ? '확인 중...' : '파싱하기'}
+                파싱하기
               </button>
             </div>
           </>

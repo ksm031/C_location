@@ -347,6 +347,7 @@ export default function Layout({ user, onLogout }) {
       {showPaste && (
         <PasteModal
           user={user}
+          existingReportIds={analyses.map(a => a.report_id)}
           onClose={() => setShowPaste(false)}
           onSaved={() => { setShowPaste(false); loadAll(); }}
         />
