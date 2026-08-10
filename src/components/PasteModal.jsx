@@ -302,11 +302,14 @@ export default function PasteModal({ user, existingReportIds = [], onClose, onSa
     }
     setStep('preview');
 
-    // 2) 다른 기기·작업자가 등록한 건 확인 (화면은 이미 넘어간 뒤)
+    // 2) 다른 기기에서 등록한 건 확인 (화면은 이미 넘어간 뒤)
+    //    중복은 등록자 기준이므로 본인 것만 조회 — 남이 올린 같은 보고서는 별개로 등록 가능
     const remaining = ids.filter(id => !localDup.includes(id));
     if (remaining.length === 0) return;
     const seq = ++parseSeq.current;
-    sb.from('analyses').select('report_id').in('report_id', remaining)
+    sb.from('analyses').select('report_id')
+      .in('report_id', remaining)
+      .eq('created_by', user.nickname)
       .then(({ data, error }) => {
         if (error || seq !== parseSeq.current) return;   // 실패·구식 응답은 무시
         const remoteDup = (data ?? []).map(r => r.report_id);

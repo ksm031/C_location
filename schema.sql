@@ -6,7 +6,7 @@
 -- 1. 파싱된 오류보고 분석 세션
 CREATE TABLE IF NOT EXISTS analyses (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  report_id    TEXT        UNIQUE NOT NULL,          -- 문제보고 번호 (예: 66-20260227-00450)
+  report_id    TEXT        NOT NULL,                 -- 문제보고 번호 (예: 66-20260227-00450)
   reported_at  TIMESTAMPTZ,                          -- 문제보고 일시
   reason       TEXT,                                 -- SHORTAGE / OVERAGE
   tote_id      TEXT,                                 -- 토트 바코드
@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS analyses (
   tote_qty     INTEGER,                              -- 토트 수량
   locations    JSONB       DEFAULT '[]'::JSONB,      -- 로케이션 목록 (JSON 배열)
   created_by   TEXT,                                 -- 등록한 사람 닉네임
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  -- 같은 오류보고라도 등록자가 다르면 별개로 취급 (작업자별 독립 진행)
+  UNIQUE(report_id, created_by)
 );
 
 -- 2. 로케이션 방문 체크 결과
@@ -96,6 +98,39 @@ ALTER TABLE analyses
   ADD COLUMN IF NOT EXISTS similar_items        JSONB;  -- 유사상품 확정 바코드 배열
   -- similar_items 의미 (DEFAULT 를 붙이면 안 됨):
   --   NULL = 미지정 (표시 안 함) / [] = 사용자가 전부 해제 / ["880..."] = 확정
+
+-- ── report_id 단독 UNIQUE → (report_id, created_by) 복합 UNIQUE ──
+-- 같은 오류보고를 여러 작업자가 각자 등록해 독립적으로 진행할 수 있게 한다.
+-- 제약 이름이 환경마다 다를 수 있어 report_id 한 컬럼짜리 UNIQUE 를 찾아 제거한다.
+DO $$
+DECLARE
+  old_name TEXT;
+  col_num  SMALLINT;
+BEGIN
+  SELECT attnum INTO col_num
+    FROM pg_attribute
+   WHERE attrelid = 'analyses'::regclass AND attname = 'report_id';
+
+  SELECT conname INTO old_name
+    FROM pg_constraint
+   WHERE conrelid = 'analyses'::regclass
+     AND contype  = 'u'
+     AND conkey   = ARRAY[col_num];
+
+  IF old_name IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE analyses DROP CONSTRAINT %I', old_name);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'analyses'::regclass
+       AND contype  = 'u'
+       AND conname  = 'analyses_report_id_created_by_key'
+  ) THEN
+    ALTER TABLE analyses
+      ADD CONSTRAINT analyses_report_id_created_by_key UNIQUE (report_id, created_by);
+  END IF;
+END $$;
 
 -- ================================================================
 -- locations JSONB 구조 예시 (참고용)
