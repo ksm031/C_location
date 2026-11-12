@@ -13,12 +13,13 @@ function stockReportId(barcode, d = new Date()) {
 
 /**
  * 재고조사 등록
- *   바코드 1개 + 수량(선택) + 로케이션(여러 개, 잡다한 텍스트에서 코드만 추출) + 이미지(선택)
+ *   바코드 1개 + 수량(선택) + 상품명(선택) + 로케이션(여러 개, 잡다한 텍스트에서 코드만 추출) + 이미지(선택)
  *   SKU ID 를 모르므로 상품페이지 링크는 두지 않는다.
  */
 export default function StockCheckModal({ user, onClose, onSaved }) {
   const [barcode, setBarcode]   = useState('');
   const [qty, setQty]           = useState('');
+  const [name, setName]         = useState('');   // 상품명 (선택)
   const [locText, setLocText]   = useState('');
   const [image, setImage]       = useState(null);   // dataUrl
   const [dragOver, setDragOver] = useState(false);
@@ -26,6 +27,7 @@ export default function StockCheckModal({ user, onClose, onSaved }) {
   const [error, setError]       = useState(null);
   const fileRef = useRef(null);
   const qtyRef  = useRef(null);
+  const nameRef = useRef(null);
   const locRef  = useRef(null);
 
   const cleanBarcode = barcode.replace(/\s/g, '');
@@ -72,7 +74,7 @@ export default function StockCheckModal({ user, onClose, onSaved }) {
       locations:   locations.map(code => ({ location_code: code, items: [], total_qty: 0 })),
       overage_items: [],
       // 찾는 대상 상품 — 상세 화면의 썸네일·전산 품목 패널이 이 배열을 읽는다
-      tote_remaining_items: [{ sku_id: null, product_name: '', barcode: cleanBarcode, sys_qty: qtyNum }],
+      tote_remaining_items: [{ sku_id: null, product_name: name.trim(), barcode: cleanBarcode, sys_qty: qtyNum }],
       created_by:  user.nickname,
     };
 
@@ -130,7 +132,7 @@ export default function StockCheckModal({ user, onClose, onSaved }) {
                 min="0"
                 value={qty}
                 onChange={e => setQty(e.target.value)}
-                onKeyDown={nextOnEnter(locRef)}
+                onKeyDown={nextOnEnter(nameRef)}
                 placeholder="-"
                 className={`w-full border rounded-xl px-3 py-2.5 text-sm text-center
                             focus:outline-none focus:ring-2 ${qtyInvalid
@@ -138,6 +140,23 @@ export default function StockCheckModal({ user, onClose, onSaved }) {
                               : 'border-slate-200 focus:ring-emerald-400'}`}
               />
             </div>
+          </div>
+
+          {/* 상품명 (선택) */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-500 font-medium">
+              상품명 <span className="font-normal text-slate-400">(선택)</span>
+            </label>
+            <input
+              ref={nameRef}
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={nextOnEnter(locRef)}
+              placeholder="예: 뽀로로 배변 팬티 2P"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
           </div>
 
           {/* 로케이션 — 아무 텍스트나 붙여넣어도 코드만 추출 */}
