@@ -3,7 +3,7 @@ import LocationAccordion from './LocationAccordion';
 import SystemItemsPanel from './SystemItemsPanel';
 import ToteMemoModal from './ToteMemoModal';
 import { getImgs } from '../lib/imageUtils';
-import { cardDate, REASON_STYLE, compareLocation, checkOutcome, OUTCOME_STYLE } from '../lib/utils';
+import { cardDate, REASON_STYLE, compareLocation, checkOutcome, OUTCOME_STYLE, memoKeyOf } from '../lib/utils';
 
 export default function DetailPanel({ analysis, checks, onCheck, onUncheck, stars = {}, onStarToggle, user, onBack, memo, onMemoSave, onMemoDelete }) {
   const [sortBy, setSortBy]       = useState('location'); // 'location' | 'time'
@@ -52,6 +52,9 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   // 유사상품: 등록 시 확정된 값만 사용 (미지정이면 표시 안 함)
   const similarBarcodes = Array.isArray(a.similar_items) ? a.similar_items : [];
   const hasBothIssues = a.reason === 'OVERAGE' && a.sys_qty > 0;
+  // 재고조사: 토트가 없으므로 제목은 바코드, 진열자/입고자 대신 등록자를 보여준다
+  const isStock = a.reason === 'STOCK_CHECK';
+  const title   = a.tote_id ?? (isStock ? uniqueProducts[0]?.barcode : null) ?? '-';
 
   // 진열 내역의 실제 진열자들 (2명 이상이면 헤더에 경고)
   const displayWorkers = [...new Set(
@@ -82,7 +85,10 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
   const diffParts = [];
   if (overageQty  > 0) diffParts.push({ text: `초과 ${sum}${overageQty}개`,  cls: 'text-yellow-600' });
   if (shortageQty > 0) diffParts.push({ text: `누락 ${sum}${shortageQty}개`, cls: 'text-blue-600' });
-  if (diffParts.length === 0) {
+  if (isStock) {
+    diffParts.length = 0;
+    diffParts.push({ text: a.sys_qty != null ? `재고조사 ${a.sys_qty}개` : '재고조사', cls: 'text-emerald-600' });
+  } else if (diffParts.length === 0) {
     diffParts.push(a.reason === 'SHORTAGE'
       ? { text: '누락', cls: 'text-blue-600' }
       : { text: '초과', cls: 'text-yellow-600' });
@@ -136,7 +142,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           >
             &#8592; 목록
           </button>
-          <span className="font-mono text-base font-bold text-slate-800 truncate">{a.tote_id ?? '-'}</span>
+          <span className="font-mono text-base font-bold text-slate-800 truncate">{title}</span>
         </div>
       )}
 
@@ -144,7 +150,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
       <div className="bg-white border-b border-slate-200 px-3 md:px-6 py-2 md:py-3 flex-shrink-0">
         {/* 행 1: 토트번호 (데스크탑만) */}
         <div className="hidden md:block font-mono text-xl font-bold text-slate-800 truncate">
-          {a.tote_id ?? '-'}
+          {title}
         </div>
 
         {/* 행 2: 유형(pill) + 진행 상태(텍스트) + 경고(pill) */}
@@ -187,6 +193,9 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
         {/* 행 3: 신고시간 · 진열자 · 입고자 · 전산 */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
           <span>{cardDate(a.reported_at)}</span>
+          {isStock ? (
+            <span>등록 {a.created_by ?? '-'}</span>
+          ) : (<>
           <span className={multiWorker ? 'text-amber-700' : undefined}>
             진열자{' '}
             {orderedWorkers.length === 0 ? '-' : orderedWorkers.map((w, i) => (
@@ -202,6 +211,7 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
           </span>
           <span>입고자 {a.inbound_worker ?? '-'}</span>
           <span>전산 {a.sys_qty}개</span>
+          </>)}
         </div>
 
         {/* 행 4: 찾아야하는 갯수 + 바코드 목록 (접기/펼치기) */}
@@ -336,10 +346,10 @@ export default function DetailPanel({ analysis, checks, onCheck, onUncheck, star
       {/* 토트 메모 모달 */}
       {memoOpen && (
         <ToteMemoModal
-          toteId={analysis.tote_id}
+          toteId={title}
           initialText={memo ?? ''}
-          onSave={(text) => onMemoSave(analysis.tote_id, text)}
-          onDelete={() => onMemoDelete(analysis.tote_id)}
+          onSave={(text) => onMemoSave(memoKeyOf(analysis), text)}
+          onDelete={() => onMemoDelete(memoKeyOf(analysis))}
           onClose={() => setMemoOpen(false)}
         />
       )}

@@ -152,4 +152,42 @@ export const REASON_STYLE = {
     countColor: 'text-slate-600',
     label:      '입고토트',
   },
+  // 재고조사 — 오류보고가 아니라 특정 상품을 지정 로케이션에서 확인하는 건
+  STOCK_CHECK: {
+    accent:     'border-l-emerald-400',
+    badge:      'bg-emerald-100 text-emerald-700',
+    countColor: 'text-emerald-600',
+    label:      '재고조사',
+  },
 };
+
+/** 토트 메모 키 — 재고조사는 토트가 없으므로 보고번호로 대신한다 */
+export function memoKeyOf(a) {
+  return a?.tote_id ?? a?.report_id ?? null;
+}
+
+/**
+ * 진열 로케이션 코드 패턴
+ *   [66-] + 존(구역 2자리 + 라인 알파벳 1~3 + 번호) + 베이 + 셀(3자리)
+ *   예: 66-42C7-62-201 · 42HV5-6-404 · 66-33C11-65-601
+ * 토트 바코드(66-RCRT60-19-421)는 존이 숫자로 시작하지 않아 걸리지 않는다.
+ * 앞뒤가 영숫자·하이픈이면 더 긴 문자열의 일부이므로 제외한다.
+ */
+const LOCATION_RE = /(?<![A-Za-z0-9-])(?:66-)?(\d{2}[A-Za-z]{1,3}\d{1,3}-\d{1,3}-\d{3})(?![A-Za-z0-9])/g;
+
+/**
+ * 잡다한 텍스트에서 로케이션 코드만 뽑아낸다.
+ * 66- 접두어가 없으면 붙이고 대문자로 맞춘 뒤, 처음 나온 순서대로 중복 제거.
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function extractLocationCodes(text) {
+  if (!text) return [];
+  const seen = new Set();
+  const out = [];
+  for (const m of String(text).matchAll(LOCATION_RE)) {
+    const code = `66-${m[1].toUpperCase()}`;
+    if (!seen.has(code)) { seen.add(code); out.push(code); }
+  }
+  return out;
+}
