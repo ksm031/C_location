@@ -34,8 +34,11 @@ export default function Sidebar({ analyses, checks, selected, onSelect, onDelete
     return analyses.filter(a => {
       if (!q) return true;
       const locs = (a.locations ?? []).map(l => l.location_code).join(' ').toLowerCase();
-      const items = (a.locations ?? [])
-        .flatMap(l => l.items)
+      const items = [
+        ...(a.locations ?? []).flatMap(l => l.items ?? []),
+        ...(a.overage_items ?? []),
+        ...(a.tote_remaining_items ?? []),
+      ]
         .map(i => `${i.product_name} ${i.barcode}`.toLowerCase())
         .join(' ');
       return (

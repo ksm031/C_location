@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { sb } from '../lib/supabase';
 import { parseText } from '../lib/parser';
 import { clearImgCache } from '../lib/imageUtils';
-import { localDateKey } from '../lib/utils';
+import { localDateKey, memoKeyOf } from '../lib/utils';
 import { notify } from '../lib/toast';
 import ToastHost from './ToastHost';
 
@@ -15,6 +15,7 @@ const BUILD_LABEL = (() => {
 import Sidebar from './Sidebar';
 import DetailPanel from './DetailPanel';
 import PasteModal from './PasteModal';
+import StockCheckModal from './StockCheckModal';
 import MemoModal from './MemoModal';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -26,6 +27,7 @@ export default function Layout({ user, onLogout }) {
   const [pasteSeed, setPasteSeed] = useState(''); // 확장 프로그램이 넘겨준 초기 텍스트
   const [pendingOpen, setPendingOpen] = useState(null); // 확장의 '진행 상황 열기' 보류 요청
   const [showMemo, setShowMemo]   = useState(false);
+  const [showStock, setShowStock] = useState(false); // 재고조사 등록 모달
   const [loadingInit, setLoadingInit] = useState(true);
   const [search, setSearch]         = useState('');   // 사이드바 검색어
   const [stars, setStars]           = useState({});   // { analysis_id: { location_code: true } }
@@ -365,6 +367,14 @@ export default function Layout({ user, onLogout }) {
             📝
           </button>
           <button
+            onClick={() => setShowStock(true)}
+            title="재고조사 등록"
+            className="px-3 md:px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs md:text-sm font-medium
+                       rounded-lg transition-colors shadow-sm flex-shrink-0"
+          >
+            재고조사
+          </button>
+          <button
             onClick={() => setShowPaste(true)}
             className="px-3 md:px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-medium
                        rounded-lg transition-colors flex items-center gap-1 shadow-sm flex-shrink-0"
@@ -439,7 +449,7 @@ export default function Layout({ user, onLogout }) {
               onStarToggle={handleStarToggle}
               user={user}
               onBack={() => setSelected(null)}
-              memo={selectedAnalysis ? (toteMemos[selectedAnalysis.tote_id] ?? null) : null}
+              memo={selectedAnalysis ? (toteMemos[memoKeyOf(selectedAnalysis)] ?? null) : null}
               onMemoSave={handleMemoSave}
               onMemoDelete={handleMemoDelete}
             />
@@ -455,6 +465,15 @@ export default function Layout({ user, onLogout }) {
           initialText={pasteSeed}
           onClose={() => { setShowPaste(false); setPasteSeed(''); }}
           onSaved={() => { setShowPaste(false); setPasteSeed(''); loadAll(); }}
+        />
+      )}
+
+      {/* ── 재고조사 등록 모달 ── */}
+      {showStock && (
+        <StockCheckModal
+          user={user}
+          onClose={() => setShowStock(false)}
+          onSaved={() => { setShowStock(false); loadAll(); notify('재고조사를 등록했습니다', 'info'); }}
         />
       )}
 

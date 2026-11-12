@@ -97,3 +97,22 @@ test('이름이 없으면 바코드 규칙만 적용', () => {
     { barcode: 'S0034557232570', product_name: null },
     { barcode: 'S0034557232566', product_name: '무언가' }));
 });
+
+/* ── 재고조사: 잡다한 텍스트에서 로케이션만 추출 ── */
+import { extractLocationCodes } from '../src/lib/utils.js';
+
+test('extractLocationCodes 는 로케이션 코드만 뽑는다', () => {
+  const text = [
+    'PICKING\t66-42HV5-6-404\t188089362\t일반\t1\t2026-03-07 01:44:30',
+    '토트 66-RCRT60-19-421 에서 나옴',            // 토트 → 제외
+    '42c7-62-201, 66-42C7-62-201 (중복)',          // 접두어 없음·소문자 → 정규화 후 중복 제거
+    '바코드 8801234567890 / 66-33C11-65-601 확인', // 바코드 무시
+    '보고번호 66-20260227-00450',                  // 보고번호 → 제외
+    'X66-42C7-62-2019',                            // 더 긴 문자열의 일부 → 제외
+    '66-42MD11-49-402',
+  ].join('\n');
+  assert.deepEqual(extractLocationCodes(text), [
+    '66-42HV5-6-404', '66-42C7-62-201', '66-33C11-65-601', '66-42MD11-49-402',
+  ]);
+  assert.deepEqual(extractLocationCodes(''), []);
+});

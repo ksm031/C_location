@@ -25,7 +25,11 @@ export default function SystemItemsPanel({ analyses, onClose }) {
       }
       for (const item of a.tote_remaining_items || []) {
         if (!item.barcode) continue;
-        list.push({ ...item, _aid: a.id, _type: 'shortage', _qty: item.sys_qty ?? item.qty ?? null });
+        list.push({
+          ...item, _aid: a.id,
+          _type: a.reason === 'STOCK_CHECK' ? 'stock' : 'shortage',
+          _qty: item.sys_qty ?? item.qty ?? null,
+        });
       }
     }
     // 키에 보고서 id 를 넣어야 다른 토트의 같은 바코드와 체크가 섞이지 않는다
@@ -206,11 +210,11 @@ export default function SystemItemsPanel({ analyses, onClose }) {
                   </div>
                   <div className="mb-1">
                     <span className={`inline-block text-[11px] px-1.5 py-0.5 rounded font-bold ${
-                      item._type === 'overage'
-                        ? 'bg-yellow-100 text-yellow-700'
+                      item._type === 'overage' ? 'bg-yellow-100 text-yellow-700'
+                        : item._type === 'stock' ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-blue-100 text-blue-700'
                     }`}>
-                      {item._type === 'overage' ? '초과' : '누락'}
+                      {item._type === 'overage' ? '초과' : item._type === 'stock' ? '재고조사' : '누락'}
                       {item._qty != null && ` ${item._qty}개`}
                     </span>
                   </div>

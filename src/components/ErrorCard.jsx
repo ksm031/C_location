@@ -55,9 +55,12 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
   // 누락/초과 수량 텍스트 (여러 종이면 '총'을 붙여 합계임을 명시)
   const overageQty = (a.overage_items ?? []).reduce((s, i) => s + (i.qty ?? 0), 0);
   const sum = uniqueBarcodeCount > 1 ? '총 ' : '';
-  const diffLabel = a.reason === 'SHORTAGE'
-    ? `누락 ${sum}${a.sys_qty}개`
-    : `초과 ${sum}${overageQty}개`;
+  const isStock = a.reason === 'STOCK_CHECK';
+  const diffLabel = isStock
+    ? (a.sys_qty != null ? `${a.sys_qty}개` : '수량 미지정')
+    : a.reason === 'SHORTAGE'
+      ? `누락 ${sum}${a.sys_qty}개`
+      : `초과 ${sum}${overageQty}개`;
 
   // 로케이션 범위: 가장 빠른 곳 ~ 가장 늦은 곳
   // '없음'으로 확인한 곳은 제외 → 남은 구간만 보여준다
@@ -82,7 +85,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-mono text-xs font-semibold text-slate-700 truncate">
-            {a.tote_id ?? '-'}
+            {a.tote_id ?? (isStock ? firstItem?.barcode : null) ?? '-'}
           </span>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${style.badge}`}>
             {style.label}
@@ -124,7 +127,7 @@ export default function ErrorCard({ analysis, checks, selected, onSelect, onDele
       )}
 
       {/* 행 3: 진열자 */}
-      <div className="text-xs text-slate-500">{a.worker}</div>
+      <div className="text-xs text-slate-500">{isStock ? `등록 ${a.created_by ?? '-'}` : a.worker}</div>
 
       {/* 행 4: 신고 시각 */}
       <div className="text-xs text-slate-400">{cardDate(a.reported_at)}</div>
